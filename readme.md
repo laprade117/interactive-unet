@@ -1,25 +1,24 @@
 
-# Basic setup
-First, place the image volume that you want to segment in the 'data/image_volumes' folder. It should by saved as a .npy file with a uint8 datatype.
+# Local setup
 
 ## First time run:
-1. Create a new virtual environment using "python3 -m venv env"
-2. Activate the environment with "source env/bin/activate"
-3. Install requirements using "pip install -r requirements.txt"
-4. If installing of requirements fails you might have to update pip with "pip install --upgrade pip" and then rerun "pip install -r requirements.txt"
-5. Run the tool with "python unet.py -p 32544". "-p" is the port number. Any free port can be used. It will display a link that you can open similar to http://127.0.0.1:32544/. Open it in any web browser and the tool should work.
+1. Copy the data into the data/image_volumes folder. All the volumes should be saved as .npy and have a 'uint8' datatype.
+2. Create a new virtual environment using "python3 -m venv env"
+3. Activate the environment with "source env/bin/activate"
+4. Install requirements using "pip install -r requirements.txt"
+5. If installing of requirements fails you might have to update pip with "pip install --upgrade pip" and then rerun "pip install -r requirements.txt"
+6. Run the tool with "python unet.py -p 32544". "-p" is the port number. Any free port can be used. It will display a link that you can open similar to http://127.0.0.1:32544/. Open it in any web browser and the tool should work.
 
 ## All other runs:
 Run commands 2 and 5.
 
 
-
 # DTU Thinlinc Setup
-This setup should work on DTU Thinlinc
+This setup should work on DTU Thinlinc.
 
 ## First time run:
-1. First copy the data into the data/image_volumes folder.
-2. Second open a terminal in the interactive-unet main folder.
+1. Copy the data into the data/image_volumes folder.
+2. Open a terminal in the interactive-unet main folder.
 3. Run the command "sxm2sh -X" to connect to the GPU's.
 4. Run the command "module load python3/3.8.4"
 5. Run the command "module load cudnn/v8.0.5.39-prod-cuda-11.0
@@ -30,7 +29,6 @@ This setup should work on DTU Thinlinc
 
 ## All other runs:
 Run commands 3,4,5,7, and 9.
-
 
 
 # DIKU Cluster Setup
