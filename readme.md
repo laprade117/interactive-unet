@@ -10,14 +10,14 @@
 6. Run the tool with "python unet.py -p 32544". "-p" is the port number. Any free port can be used. It will display a link that you can open similar to http://127.0.0.1:32544/. Open it in any web browser and the tool should work.
 
 ### All other runs:
-Follow steps 2 and 5.
+Follow steps 3 and 6.
 
 
 ## DTU Thinlinc Setup
 This setup should work on DTU Thinlinc.
 
 ### First time run:
-1. Copy the data into the data/image_volumes folder.
+1. Copy the data into the data/image_volumes folder. All the volumes should be saved as .npy and have a 'uint8' datatype.
 2. Open a terminal in the interactive-unet main folder.
 3. Run the command "sxm2sh -X" to connect to the GPU's.
 4. Run the command "module load python3/3.8.4"
@@ -28,7 +28,7 @@ This setup should work on DTU Thinlinc.
 9. Run the tool with "python unet.py -p 32544". "-p" is the port number. Any free port can be used. It will display a link that you can open similar to http://127.0.0.1:32544/. Open it in the web browser on Thinlinc.
 
 ### All other runs:
-Follow steps 3,4,5,7, and 9.
+Follow steps 3, 4, 5, 7, and 9.
 
 
 ## DIKU Cluster Setup
