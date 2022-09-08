@@ -1,0 +1,4 @@
+monai
+pytorch-lightning
+scikit-image
+flask
