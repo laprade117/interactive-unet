@@ -88,5 +88,5 @@ def predict_volumes(input_size=256, n_channels=1, n_classes=2):
 
         final_prediction = ((final_prediction / 3) * 255).astype('uint8')
 
-        np.save(f.replace('image_volumes', 'predicted_volumes'), final_prediction[:,:,:,1])
+        np.save(f.replace('image_volumes', 'predicted_volumes'), final_prediction)
 
