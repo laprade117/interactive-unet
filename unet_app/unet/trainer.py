@@ -36,6 +36,7 @@ def train_model(initial_lr=0.0001, batch_size=8, epochs=20, n_channels=1, n_clas
     trainer = pl.Trainer(max_epochs=epochs,
                          log_every_n_steps=1,
                          callbacks=[checkpoint_callback],
-                         gpus=1,
-                         accelerator="gpu")
+                         accelerator="auto",
+                         devices="auto",
+                         strategy="auto")
     trainer.fit(model, train_loader, val_loader)
