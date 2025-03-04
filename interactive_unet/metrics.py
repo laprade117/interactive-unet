@@ -1,27 +1,5 @@
 import torch
 
-def accuracy(y_pred, y_true, weight=None, axes=[1,2,3]):
-    """
-    Computes the accuracy along the given axes and then 
-    takes the mean across the remaining axes. 
-    """
-    
-    if weight is not None:
-        y_pred = y_pred * weight
-        y_true = y_true * weight
-        
-    # Accuracy computation
-    if weight is not None:
-        correct = torch.sum(y_true == y_pred, axis=axes) - torch.sum(1 - weight, axis=axes)
-        counts = torch.sum(weight, axis=axes)
-    else:
-        correct = torch.sum(y_true == y_pred, axis=axes)
-        counts = torch.prod(torch.take(torch.tensor(y_true.shape), torch.tensor(axes)))
-
-    accuracy = correct / counts
-        
-    return accuracy
-
 def crossentropy_loss(y_pred, y_true, weight=None, axes=[2,3]):
     """
     Computes the crossentropy loss along the given axes and then 
@@ -47,16 +25,16 @@ def dice(y_pred, y_true, weight=None, axes=[2,3]):
     Computes the dice score along the given axes and then 
     takes the mean across the remaining axes. 
     """
-    
+
     epsilon = 1e-12
     
-    if weight is not None:
-        y_pred = y_pred * weight
-        y_true = y_true * weight
+    # Compute confusion matrix percentages
+    tp = true_positives(y_pred, y_true, weight, axes)
+    fp = false_positives(y_pred, y_true, weight, axes)
+    fn = false_negatives(y_pred, y_true, weight, axes)
 
-    # Dice computation
-    num = 2 * torch.sum(y_pred * y_true, axis=axes)
-    den = torch.sum(y_pred + y_true, axis=axes)
+    num = 2 * tp
+    den = 2 * tp + fp + fn
     dice_score = (num + epsilon) / (den + epsilon)
 
     return torch.mean(dice_score)
@@ -73,10 +51,19 @@ def iou(y_pred, y_true, weight=None, axes=[2,3]):
     Computes the intersection over union (Jaccard index) along the given axes and then 
     takes the mean across the remaining axes. 
     """
+
+    epsilon = 1e-12
     
-    dice_score = dice(y_pred, y_true, weight, axes)
-    iou_score = dice_score / (2.0 - dice_score)
-    return iou_score
+    # Compute confusion matrix percentages
+    tp = true_positives(y_pred, y_true, weight, axes)
+    fp = false_positives(y_pred, y_true, weight, axes)
+    fn = false_negatives(y_pred, y_true, weight, axes)
+
+    num = tp
+    den = tp + fp + fn
+    iou_score = (num + epsilon) / (den + epsilon)
+
+    return torch.mean(iou_score)
 
 def iou_loss(y_pred, y_true, weight=None, axes=[2,3]):
     """

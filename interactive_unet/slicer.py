@@ -143,12 +143,20 @@ class Slicer(object):
 
         self._normalize_vectors()
 
-    def randomize(self, candidates=None, class_weights=None, origin_shift_range=0.8, sampling_mode='random'):
+    def randomize(self, candidates=None, class_weights=None, origin_shift_range=0.8, sampling_mode='random', sampling_axis='random'):
         """
         Randomizes the orientation vectors and origin.
         """
         if sampling_mode == 'grid':
-            rotation_vector = np.array([1,0,0])
+            if sampling_axis == 'random':
+                rotation_vector = np.zeros(3)
+                rotation_vector[np.random.randint(3)] = 1
+            elif sampling_axis == 'x':
+                rotation_vector = np.array([1,0,0])
+            elif sampling_axis == 'y':
+                rotation_vector = np.array([0,1,0])
+            elif sampling_axis == 'z':
+                rotation_vector = np.array([0,0,1])
         elif sampling_mode == 'random':
             rotation_vector = self._generate_uniformly_random_unit_vector()
         else:

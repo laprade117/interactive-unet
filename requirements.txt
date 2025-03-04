@@ -1,5 +1,0 @@
-monai
-pytorch-lightning
-scikit-image
-flask
-matplotlib
