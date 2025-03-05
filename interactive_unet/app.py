@@ -574,7 +574,7 @@ with ui.column(align_items='center').classes('w-full justify-center'):
 
                         ui_select_encoder = ui.select(smp.encoders.get_encoder_names(), 
                                                     value='timm-mobilenetv3_large_100', 
-                                                    label='U-Net Encoder').props('filled').classes('w-3/4')
+                                                    label='Encoder').props('filled').classes('w-3/4')
                         ui_checkbox_pretrained = ui.checkbox('Pretrained',
                                                             value=True).classes('w-1/4')
 
