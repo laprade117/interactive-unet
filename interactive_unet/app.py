@@ -198,12 +198,24 @@ def clear():
     redraw()
 
 def key_handler(e: KeyEventArguments):
-    global color_idx, train_samples, val_samples
+    global color_idx, train_samples, val_samples, image_slice, image_slice_with_overlay
     
     if e.action.keydown and not e.action.repeat:
 
         if e.key == 'Space':
             randomize()
+
+        if e.key == 'q':
+            slicers[volume_index].shift_origin(shift_amount=[1,0,0])
+            image_slice = slicers[volume_index].get_slice(volumes[volume_index], slice_width=input_size, order=1).astype('uint8')
+            image_slice_with_overlay = np.repeat(image_slice[:,:,None], 3, axis=2)
+            redraw()
+
+        if e.key == 'a':
+            slicers[volume_index].shift_origin(shift_amount=[-1,0,0])
+            image_slice = slicers[volume_index].get_slice(volumes[volume_index], slice_width=input_size, order=1).astype('uint8')
+            image_slice_with_overlay = np.repeat(image_slice[:,:,None], 3, axis=2)
+            redraw()
 
         # Next class/color
         if e.key == 'c':
@@ -250,7 +262,7 @@ def key_handler(e: KeyEventArguments):
                 ui_select_input_size.disable()
                 ui_select_num_classes.disable()
 
-                randomize()
+                clear()
 
 
 def mouse_handler(e: events.MouseEventArguments):
@@ -574,7 +586,7 @@ with ui.column(align_items='center').classes('w-full justify-center'):
 
                         ui_select_encoder = ui.select(smp.encoders.get_encoder_names(), 
                                                     value='timm-mobilenetv3_large_100', 
-                                                    label='Encoder').props('filled').classes('w-3/4')
+                                                    label='U-Net Encoder').props('filled').classes('w-3/4')
                         ui_checkbox_pretrained = ui.checkbox('Pretrained',
                                                             value=True).classes('w-1/4')
 
