@@ -17,7 +17,8 @@ def get_data_loader(data_folder, batch_size, augment=False, shuffle=False):
     loader = DataLoader(dataset,
                         batch_size=batch_size,
                         shuffle=shuffle,
-                        num_workers=0)
+                        num_workers=4,
+		        persistent_workers=True)
 
     return loader
 
