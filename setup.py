@@ -5,7 +5,7 @@ setup(
     version='0.1.0',    
     description='An interactive segmentation tool for 3D volumetric data.',
     license='BSD 2-clause',
-    packages=['intseg'],
+    packages=['interactive_unet'],
     entry_points = {
         'console_scripts': ['interactive-unet=interactive_unet:app'],
     },
