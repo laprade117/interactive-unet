@@ -670,4 +670,4 @@ with ui.dialog() as dialog, ui.card():
 
 randomize()
 
-ui.run(reload=False, port=45321)
+ui.run(host='0.0.0.0', port=45321, show=False, reload=False)
