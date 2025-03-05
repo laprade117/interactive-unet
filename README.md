@@ -26,7 +26,10 @@ Using the paint tool annotate at least one image and then train a model. Repeat 
 - **Right click**: Paint background color (red)
 - **Mouse Wheel**: Adjust brush size
 - **Ctrl + S**: Save sample
-- **Spacebar**: Next random slice
+
+- **Q**: Next slice in stack
+- **A**: Previous slice in stack
+- **Spacebar**: Random slice
   
 - **C**: Cycles through additional colors if using more than two classes.
 - **D**: Toggle prediction overlay
