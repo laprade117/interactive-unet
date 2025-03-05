@@ -38,14 +38,16 @@ Using the paint tool annotate at least one image and then train a model. Repeat 
 - **Shift + Mouse Wheel**: Zoom in and out
 
 ### DTU Thinlinc Setup
-1. Activate an interactive GPU session with
+1. Activate an interactive GPU session:
 `sxm2sh -X`
 
-2. Create a virtual environment
+2. Create a virtual environment:
 `python3 -m venv env`
 
-3. Activate the environment
+3. Activate the environment:
 `source env/bin/activate`
 
-4. Install the tool
+4. Install the tool:
 `pip install git+https://github.com/laprade117/interactive-unet`
+
+Currently, you can only access the tool from the browser within the the ThinLinc Client. External usage is not working yet.
