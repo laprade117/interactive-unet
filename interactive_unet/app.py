@@ -527,7 +527,6 @@ ui.page_title('Interactive Segmentation')
 with ui.column(align_items='center').classes('w-full justify-center'):
 
     ui.markdown("#### **Interactive Segmentation Tool**")
-    ui_messages = ui.markdown('Add 3D volumes stored as \'uint8\' numpy (.npy) files to the \'data\image_volumes\' folder.')
 
     with ui.row().classes('w-full justify-center'):
 
@@ -535,6 +534,8 @@ with ui.column(align_items='center').classes('w-full justify-center'):
 
             with ui.scroll_area().classes('w-full h-[calc(100vh-8rem)] justify-center no-wrap'):
 
+                ui_messages = ui.markdown('Add 3D volumes stored as \'uint8\' numpy (.npy) files to the \'data\image_volumes\' folder.')
+                
                 with ui.row(align_items='center').classes('w-full justify-center no-wrap'):
 
                     ui_select_input_size = ui.select([128,256,384,512],
