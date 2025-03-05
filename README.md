@@ -14,7 +14,7 @@ Run the tool in a designated project folder using:
 
 `interactive-unet`
 
-This will create the necessary folder structure at the current working directory.
+This will create the necessary folder structure at the current working directory and then provide a link that can be opened in any web browser to access the interface.
 
 Next, copy any 3D volumetric images that you want to segment into the `data/image_volumes` folder. Ensure they are stored as numpy (.npy) files in `uint8`. Shape and size doesn't matter as long as all the volumes that you place in this folder can all be loaded into RAM simultaneously.
 
