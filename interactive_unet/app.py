@@ -664,4 +664,4 @@ with ui.dialog() as dialog, ui.card():
 
 randomize()
 
-ui.run(show=False, port=45321)
+ui.run(port=45321)
