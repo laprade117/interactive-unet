@@ -136,7 +136,7 @@ def randomize():
         volume_index = np.random.randint(len(volumes))
         slicers[volume_index].randomize(sampling_mode=sampling_mode, sampling_axis=sampling_axis)
 
-        image_slice = slicers[volume_index].get_slice(volumes[volume_index], slice_width=input_size, order=0).astype('uint8')
+        image_slice = slicers[volume_index].get_slice(volumes[volume_index], slice_width=input_size, order=1).astype('uint8')
     image_slice_with_overlay = np.repeat(image_slice[:,:,None], 3, axis=2)
     
     clear()
@@ -365,7 +365,7 @@ def update_num_classes(e):
 def update_input_size(e):
     global input_size, image_slice, image_slice_with_overlay
     input_size = ui_select_input_size.value
-    image_slice = slicers[volume_index].get_slice(volumes[volume_index], slice_width=input_size, order=0).astype('uint8')
+    image_slice = slicers[volume_index].get_slice(volumes[volume_index], slice_width=input_size, order=1).astype('uint8')
     image_slice_with_overlay = np.repeat(image_slice[:,:,None], 3, axis=2)
     clear()
 
@@ -505,10 +505,8 @@ def check_volume_folder():
     volume_files = np.sort(glob.glob('data/image_volumes/*.npy'))
     new_file_count = len(volume_files)
 
-    if len(volume_files) == 0:
-        ui_messages.content = 'Add 3D volumes stored as \'uint8\' numpy (.npy) files to the \'data\image_volumes\' folder.'
-    else:
-        ui_messages.content = f'Volumes: {len(volume_files)}, Samples: {len(train_samples)}'
+    ui_volume_count.content = f'Volumes: {len(volume_files)}'
+    ui_sample_count.content = f'Samples: {len(train_samples)}'
 
     if new_file_count != old_file_count:
         volumes = []
@@ -522,6 +520,8 @@ def check_volume_folder():
                 slicers.append(Slicer(volumes[-1].shape))
             volume_index = np.random.randint(len(volumes))
             randomize()
+        if new_file_count == 0:
+            randomize()
 
 ui.page_title('Interactive Segmentation')
 with ui.column(align_items='center').classes('w-full justify-center'):
@@ -533,8 +533,13 @@ with ui.column(align_items='center').classes('w-full justify-center'):
         with ui.column().classes('w-1/4'):
 
             with ui.scroll_area().classes('w-full h-[calc(100vh-8rem)] justify-center no-wrap'):
+                
+                with ui.row(align_items='center').classes('bg-gray-100 w-full justify-center no-wrap'):
+                    with ui.element('div').classes('justify-center'):
+                        ui_volume_count = ui.markdown(f'Volumes: {len(volume_files)}')
 
-                ui_messages = ui.markdown('Add 3D volumes stored as \'uint8\' numpy (.npy) files to the \'data\image_volumes\' folder.')
+                    with ui.element('div').classes('justify-center'):
+                        ui_sample_count = ui.markdown(f'Samples: {len(train_samples)}')
                 
                 with ui.row(align_items='center').classes('w-full justify-center no-wrap'):
 
@@ -649,10 +654,10 @@ with ui.column(align_items='center').classes('w-full justify-center'):
             ui_button_predict_volumes = ui.button('Predict volumes', on_click=predict_volumes).props('filled').classes('w-full')
 
 
-volume_timer = ui.timer(0.5, callback=check_volume_folder)
+volume_timer = ui.timer(2.0, callback=check_volume_folder)
 plot_timer = ui.timer(2.0, callback=update_training_plot)
-redraw_timer = ui.timer(0.1, callback=redraw_check)
-defocus_timer = ui.timer(0.5, callback=defocus)
+redraw_timer = ui.timer(0.2, callback=redraw_check)
+defocus_timer = ui.timer(1.0, callback=defocus)
 
 keyboard = ui.keyboard(on_key=key_handler)
 
