@@ -15,6 +15,7 @@ class UNet(L.LightningModule):
     def __init__(self, lr=0.0001,
                  num_channels=1, num_classes=2,
                  loss_function=metrics.mcc_ce_loss,
+                 architecture='U-Net',
                  encoder_name='mobileone_s4',
                  pretrained=True):
         super().__init__()
@@ -29,11 +30,34 @@ class UNet(L.LightningModule):
         else:
             encoder_weights = None
 
-        self.model = smp.Unet(
-            encoder_name=encoder_name,        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-            encoder_weights=encoder_weights,         # use `imagenet` pre-trained weights for encoder initialization
-            in_channels=num_channels,           # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-            classes=num_classes,                # model output channels (number of classes in your dataset)
+        if architecture == 'U-Net':
+            model_builder = smp.Unet
+        elif architecture == 'U-Net++':
+            model_builder = smp.UnetPlusPlus
+        elif architecture == 'FPN':
+            model_builder = smp.FPN
+        elif architecture == 'PSPNet':
+            model_builder = smp.PSPNetc
+        elif architecture == 'DeepLabV3':
+            model_builder = smp.DeepLabV3
+        elif architecture == 'DeepLabV3+':
+            model_builder = smp.DeepLabV3Plus
+        elif architecture == 'LinkNet':
+            model_builder = smp.Linknet
+        elif architecture == 'MA-Net':
+            model_builder = smp.MAnet
+        elif architecture == 'PAN':
+            model_builder = smp.PAN
+        elif architecture == 'UPerNet':
+            model_builder = smp.UPerNet
+        elif architecture == 'Segformer':
+            model_builder = smp.Segformer
+
+        self.model = model_builder(
+            encoder_name=encoder_name,
+            encoder_weights=encoder_weights,
+            in_channels=num_channels,
+            classes=num_classes,
         )
         
         self.softmax = nn.Softmax(dim=1)

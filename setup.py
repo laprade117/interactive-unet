@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name='interactive-segmentation',
+    name='interactive-unet',
     version='0.1.0',    
     description='An interactive segmentation tool for 3D volumetric data.',
     license='BSD 2-clause',

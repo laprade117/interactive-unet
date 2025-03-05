@@ -400,6 +400,7 @@ def defocus():
     ui_select_input_size.run_method('blur')
     ui_select_num_classes.run_method('blur')
     
+    ui_select_architecture.run_method('blur')
     ui_select_encoder.run_method('blur')
     ui_checkbox_pretrained.run_method('blur')
 
@@ -447,6 +448,7 @@ async def clear_model():
     if result == 'Yes':
         utils.clear_model()
 
+    ui_select_architecture.enable()
     ui_select_encoder.enable()
     ui_checkbox_pretrained.enable()
 
@@ -463,6 +465,7 @@ async def reset_all():
     val_samples = glob.glob('data/val/images/*.tiff')
     ui_select_input_size.enable()
     ui_select_num_classes.enable()
+    ui_select_architecture.enable()
     ui_select_encoder.enable()
     ui_checkbox_pretrained.enable()
 
@@ -472,12 +475,14 @@ def train_model():
             'epochs' : ui_select_num_epochs.value,
             'num_classes' : num_classes,
             'loss_function_name' : ui_select_loss_function.value,
+            'architecture' : ui_select_architecture.value,
             'encoder_name' : ui_select_encoder.value,
             'pretrained' : ui_checkbox_pretrained.value}
 
     with open('model/model_details.pkl', 'wb') as f:
         pickle.dump(kwargs, f)
 
+    ui_select_architecture.disable()
     ui_select_encoder.disable()
     ui_checkbox_pretrained.disable()
 
@@ -558,6 +563,13 @@ with ui.column(align_items='center').classes('w-full justify-center'):
 
                 with ui.expansion(text='Model settings').props('dense filled').classes('w-full'):
 
+                    ui_select_architecture = ui.select(['U-Net', 'U-Net++', 'FPN',
+                                                        'PSPNet', 'DeepLabV3', 'DeepLabV3+',
+                                                        'LinkNet', 'MA-Net', 'PAN',
+                                                        'UPerNet', 'Segformer'],
+                                                       value='U-Net',
+                                                       label='Architecture').props('filled').classes('w-full')
+
                     with ui.row(align_items='center').classes('w-full justify-center no-wrap'):
 
                         ui_select_encoder = ui.select(smp.encoders.get_encoder_names(), 
@@ -570,9 +582,11 @@ with ui.column(align_items='center').classes('w-full justify-center'):
                             
                             with open('model/model_details.pkl', 'rb') as f:
                                 model_details = pickle.load(f)
+                                ui_select_architecture.value = model_details['architecture']
                                 ui_select_encoder.value = model_details['encoder_name']
                                 ui_checkbox_pretrained.value = model_details['pretrained']
 
+                            ui_select_architecture.disable()
                             ui_select_encoder.disable()
                             ui_checkbox_pretrained.disable()
                         
