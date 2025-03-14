@@ -27,6 +27,9 @@ slicers = []
 volume_files = np.sort(glob.glob('data/image_volumes/*.npy'))
 volume_index = 0
 
+if len(volume_files) == 0:
+    utils.download_example_data()
+
 if len(volume_files) > 0:
     for f in volume_files:
         volumes.append(np.load(f))

@@ -1,13 +1,24 @@
+import io
 import cv2
 import glob
 import shutil
+import requests
 import numpy as np
 import pandas as pd
-from skimage import io
+import tifffile as tiff
 from pathlib import Path
 from scipy import ndimage
+from skimage.io import imsave
 
 from interactive_unet import metrics
+
+def download_example_data():
+    
+    url = 'https://documents.epfl.ch/groups/c/cv/cvlab-unit/www/data/%20ElectronMicroscopy_Hippocampus/training.tif'
+    resp = requests.get(url)
+    volume = np.array(tiff.imread(io.BytesIO(resp.content)))
+
+    np.save('data/image_volumes/test_vol.npy', volume)
 
 def normalize(x):
     x = x - np.min(x)
@@ -64,16 +75,16 @@ def save_sample(image_slice, mask_slice, slice_data):
 
     # Save training sample
     n_samples = len(glob.glob("data/train/images/*.tiff"))
-    io.imsave(f'data/train/images/{n_samples:04d}.tiff', image_slice)
-    io.imsave(f'data/train/masks/{n_samples:04d}.tiff', mask_slice)
-    io.imsave(f'data/train/weights/{n_samples:04d}.tiff', train_weight_slice)
+    imsave(f'data/train/images/{n_samples:04d}.tiff', image_slice)
+    imsave(f'data/train/masks/{n_samples:04d}.tiff', mask_slice)
+    imsave(f'data/train/weights/{n_samples:04d}.tiff', train_weight_slice)
     np.save(f'data/train/slices/{n_samples:04d}.npy', slice_data)
 
     # Save validation sample
     n_samples = len(glob.glob("data/val/images/*.tiff"))
-    io.imsave(f'data/val/images/{n_samples:04d}.tiff', image_slice)
-    io.imsave(f'data/val/masks/{n_samples:04d}.tiff', mask_slice)
-    io.imsave(f'data/val/weights/{n_samples:04d}.tiff', val_weight_slice)
+    imsave(f'data/val/images/{n_samples:04d}.tiff', image_slice)
+    imsave(f'data/val/masks/{n_samples:04d}.tiff', mask_slice)
+    imsave(f'data/val/weights/{n_samples:04d}.tiff', val_weight_slice)
     np.save(f'data/val/slices/{n_samples:04d}.npy', slice_data)
 
 # Folder and data functions -------------------------------------------------------------------------------------
