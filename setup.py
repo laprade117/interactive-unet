@@ -9,8 +9,8 @@ setup(
     entry_points = {
         'console_scripts': ['interactive-unet=interactive_unet:app'],
     },
-    install_requires=['torch',
-                      'torchvision',
+    install_requires=['torch>=2.6.0',
+                      'torchvision>=0.21.0',
                       'nicegui',
                       'scikit-image',
                       'opencv-python',
