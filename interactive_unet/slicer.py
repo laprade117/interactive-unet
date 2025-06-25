@@ -7,7 +7,7 @@ A tool used for extracting and replacing randomly (or grid) oriented and positio
 
 class Slicer(object):
 
-    def __init__(self, volume_shape):
+    def __init__(self, volume_shape=[512,512,512]):
 
         self.volume_shape = np.array(volume_shape)
 
@@ -37,7 +37,7 @@ class Slicer(object):
         Generates a uniformly random unit vector. Uses one of the methods
         outlined in http://corysimon.github.io/articles/uniformdistn-on-sphere/.
         """
-    
+        
         # Initial vector
         u = np.random.normal(size=ndim)
         
@@ -203,7 +203,7 @@ class Slicer(object):
         slice_coords = np.round(coords[axis]).reshape((3,np.prod(coords[axis].shape[1:]))).astype(int)
 
         slice_coords = np.array([np.clip(slice_coords[i], 0, volume.shape[i]-1) for i in range(3)])
-        cmh
+        
         if len(data.shape) == 2:
             data = data.ravel()
         if len(data.shape) == 3:
@@ -222,7 +222,7 @@ class Slicer(object):
 
     def shift_origin(self, shift_amount=[0,0,0]):        
         """
-        Updates the position of the slice in the volume.cmh
+        Updates the position of the slice in the volume.
 
         Parameters
         ----------

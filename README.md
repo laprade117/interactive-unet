@@ -14,9 +14,7 @@ Run the tool in a designated project folder using:
 
 `interactive-unet`
 
-This will create the necessary folder structure an download some example data at the current working directory and then provide a link that can be opened in any web browser to access the interface.
-
-The example data is loaded from the EPFL Electron Microscopy Mitochondira dataset located here: https://www.epfl.ch/labs/cvlab/data/data-em/
+This will create the necessary folder structure at the current working directory and then provide a link that can be opened in any web browser to access the interface.
 
 Next, copy any 3D volumetric images that you want to segment into the `data/image_volumes` folder. Ensure they are stored as numpy (.npy) files in `uint8`. Shape and size doesn't matter as long as all the volumes that you place in this folder can all be loaded into RAM simultaneously.
 
@@ -26,6 +24,8 @@ Using the paint tool annotate at least one image and then train a model. Repeat 
 
 - **Left click**: Paint displayed color
 - **Right click**: Paint background color (red)
+- **Ctrl + Left Click**: Push displayed overlay onto annotation map
+
 - **Mouse Wheel**: Adjust brush size
 - **Ctrl + S**: Save sample
 
@@ -35,6 +35,7 @@ Using the paint tool annotate at least one image and then train a model. Repeat 
   
 - **C**: Cycles through additional colors if using more than two classes.
 - **D**: Toggle prediction overlay
+- **F**: Cycle between overlay types
   
 - **Ctrl + Z**: Undo last paint stroke
 - **Ctrl + Y**: Redo last paint stroke

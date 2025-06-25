@@ -3,6 +3,7 @@ import cv2
 import glob
 import time
 import pickle
+import asyncio
 import threading
 import numpy as np
 from PIL import Image
@@ -10,58 +11,53 @@ from skimage import io
 
 import plotly.graph_objects as go
 
-from nicegui import ui, events
+from nicegui import ui, events, run
 from nicegui.events import KeyEventArguments
 
 import segmentation_models_pytorch as smp
 
+import torch
+
 from interactive_unet.slicer import Slicer
 from interactive_unet.annotator import Annotator
-from interactive_unet import utils, trainer, predict
+from interactive_unet import utils, trainer, predict, suggestor
 
+# Creates initial directory structure if note already created
 utils.create_directories()
 
-volumes = []
-slicers = []
+# Load data
+dataset = utils.load_dataset()
+if len(dataset) > 0:
+    volume_index = np.random.randint(len(dataset))
 
-volume_files = np.sort(glob.glob('data/image_volumes/*.npy'))
-volume_index = 0
+train_samples = glob.glob('data/train/images/*.tiff')
 
-if len(volume_files) == 0:
-    utils.download_example_data()
+# Data parameters
+num_classes = utils.get_num_classes()
+input_size = utils.get_input_size()
 
-if len(volume_files) > 0:
-    for f in volume_files:
-        volumes.append(np.load(f))
-        slicers.append(Slicer(volumes[-1].shape))
-    volume_index = np.random.randint(len(volumes))
-
-train_samples = glob.glob('data/train/masks/*.tiff')  
-val_samples = glob.glob('data/val/masks/*.tiff')
-
-
+# Color parameters
 colors = ['rgba(230, 25, 75, 1)', 'rgba(60, 180, 75, 1)', 'rgba(255, 225, 25, 1)', 'rgba(0, 130, 200, 1)', 'rgba(245, 130, 48, 1)',
         'rgba(145, 30, 180, 1)', 'rgba(70, 240, 240, 1)', 'rgba(240, 50, 230, 1)', 'rgba(210, 245, 60, 1)', 'rgba(170, 255, 195, 1)']
 color_idx = 1
 color_idx_prev = 1
 
-canvas_size = 700
-
+# Plotly figure parameters
 metric = 'Loss'
 fig = utils.get_training_history_figure(metric)
 
+# Sampling parameters
 sampling_mode = 'random'
 sampling_axis = 'x'
 
-num_classes = 2
-input_size = 512
-if len(train_samples) > 0:
-    mask = io.imread(train_samples[0])
-    input_size = mask.shape[0]
-    num_classes = np.unique(mask.reshape(-1, mask.shape[-1]), axis=0).shape[0] - 1
-
+# UI/Canvas parameters
+canvas_size = 700
 annotator = Annotator(canvas_size)
 
+training = False
+predicting = False
+extracting = False
+suggesting = False
 interacting = False
 updated = True
 last_interaction = time.time()
@@ -131,16 +127,18 @@ ui.add_body_html("""
                     """)
 
 def randomize():
-    global volume_index, slicers, image_slice, image_slice_with_overlay
+    global annotator, dataset, volume_index, image_slice
 
-    if len(volumes) == 0:
+    if len(dataset) == 0:
+        # Create blank slice if no volumes are provided
         image_slice = np.zeros((input_size,input_size), dtype='uint8')
     else:
-        volume_index = np.random.randint(len(volumes))
-        slicers[volume_index].randomize(sampling_mode=sampling_mode, sampling_axis=sampling_axis)
+        # Choose random volume and get random slice
+        volume_index = np.random.randint(len(dataset))
+        dataset[volume_index].randomize(sampling_mode=sampling_mode, sampling_axis=sampling_axis)
+        image_slice = dataset[volume_index].get_slice(slice_width=input_size, order=1).astype('uint8')
 
-        image_slice = slicers[volume_index].get_slice(volumes[volume_index], slice_width=input_size, order=1).astype('uint8')
-    image_slice_with_overlay = np.repeat(image_slice[:,:,None], 3, axis=2)
+    annotator.set_image(np.repeat(image_slice[:,:,None], 3, axis=2))
     
     clear()
 
@@ -152,30 +150,29 @@ def redraw_check():
         redraw()
 
 def redraw():
+    
+    annotator.update_display(ii.annotation_opacity, ii.overlay_opacity, overlay=ii.overlay)
+
     if interacting: 
         # Fast redraw
-        ii.source = Image.fromarray(cv2.resize(annotator.get_roi_image(image_slice_with_overlay, size=100), (700, 700), interpolation=cv2.INTER_NEAREST))
+        ii.source = Image.fromarray(cv2.resize(annotator.get_roi_image(size=60), (canvas_size, canvas_size), interpolation=cv2.INTER_NEAREST))
     else:
-        ii.source = Image.fromarray(annotator.get_roi_image(image_slice_with_overlay))
+        ii.source = Image.fromarray(annotator.get_roi_image())
 
     redraw_overlay()
 
 def redraw_overlay():
-    mask = annotator.get_mask_overlay()
-    ii.cursor = f'<circle cx="{ii.x}" cy="{ii.y}" r="{ii.brush_size/2}" fill="{colors[color_idx]}" stroke="{colors[color_idx]}" opacity="{ii.cursor_opacity}" />'
-    ii.content = f'<g opacity="{ii.annotation_opacity}"> {mask} </g> {ii.cursor}'
 
-def redraw_prediction():
-    global image_slice_with_overlay
-    if prediction is not None:
-        image_slice_with_overlay = np.repeat(image_slice[:,:,None], 3, axis=2) / 255
-        image_slice_with_overlay = (image_slice_with_overlay * (1 - ii.prediction_opacity) + prediction * ii.prediction_opacity)
-        image_slice_with_overlay = np.round(255 * image_slice_with_overlay).astype('uint8')
-    else:
-        image_slice_with_overlay = np.repeat(image_slice[:,:,None], 3, axis=2)
+    mask = ''
+
+    if ii.is_drawing:
+        mask = annotator.get_current_path_overlay()
+
+    cursor = f'<circle cx="{ii.x}" cy="{ii.y}" r="{ii.brush_size/2}" fill="{colors[color_idx]}" stroke="{colors[color_idx]}" opacity="{ii.cursor_opacity}" />'
+    ii.content = f'<g opacity="{ii.annotation_opacity}"> {mask} </g> {cursor}'
     
 def clear():
-    global annotator, color_idx, interacting, updated, prediction
+    global annotator, color_idx, interacting, updated
 
     annotator.reset()
     color_idx = 1
@@ -185,39 +182,52 @@ def clear():
     ii.x = 0
     ii.y = 0
     ii.is_drawing = False
+    ii.mode = 'paint'
+    ii.overlay = None
+    ii.image_features = {'features': None, # Average features used for training.
+                         'features_list': []} # Contains features from multiple scales
+    ii.suggestor_model = None
     ii.brush_size = 40
+
     ii.cursor_opacity = 0.25
     ii.annotation_opacity = 0.25
-    ii.prediction_opacity = 0.25
+    ii.overlay_opacity = 0.25
 
     ui_slider_cursor_opacity.value = int(ii.cursor_opacity * 100)
     ui_slider_annotation_opacity.value = int(ii.annotation_opacity * 100)
-    ui_slider_prediction_opacity.value = int(ii.prediction_opacity * 100)
+    ui_slider_overlay_opacity.value = int(ii.overlay_opacity * 100)
 
-    prediction = None
     ui_button_predict.text = 'Predict'
 
-    redraw_prediction()
     redraw()
 
 def key_handler(e: KeyEventArguments):
-    global color_idx, train_samples, val_samples, image_slice, image_slice_with_overlay
+    global annotator, dataset, train_samples, color_idx, image_slice
     
     if e.action.keydown and not e.action.repeat:
 
+        # Random slice
         if e.key == 'Space':
             randomize()
 
+        # Next slice in stack
         if e.key == 'q':
-            slicers[volume_index].shift_origin(shift_amount=[1,0,0])
-            image_slice = slicers[volume_index].get_slice(volumes[volume_index], slice_width=input_size, order=1).astype('uint8')
-            image_slice_with_overlay = np.repeat(image_slice[:,:,None], 3, axis=2)
+            dataset[volume_index].shift_origin(shift_amount=[1,0,0])
+            image_slice = dataset[volume_index].get_slice(slice_width=input_size, order=1).astype('uint8')
+            annotator.set_image(np.repeat(image_slice[:,:,None], 3, axis=2))    
+            ii.image_features = {'features': None,
+                                 'features_list': []}
+            ii.suggestor_model = None
             redraw()
 
+        # Previous slice in stack
         if e.key == 'a':
-            slicers[volume_index].shift_origin(shift_amount=[-1,0,0])
-            image_slice = slicers[volume_index].get_slice(volumes[volume_index], slice_width=input_size, order=1).astype('uint8')
-            image_slice_with_overlay = np.repeat(image_slice[:,:,None], 3, axis=2)
+            dataset[volume_index].shift_origin(shift_amount=[-1,0,0])
+            image_slice = dataset[volume_index].get_slice(slice_width=input_size, order=1).astype('uint8')
+            annotator.set_image(np.repeat(image_slice[:,:,None], 3, axis=2))
+            ii.image_features = {'features': None,
+                                 'features_list': []}
+            ii.suggestor_model = None   
             redraw()
 
         # Next class/color
@@ -234,44 +244,46 @@ def key_handler(e: KeyEventArguments):
                 color_idx = num_classes - 1
             redraw_overlay()
 
-        # Toggle prediction overlay
+        # Toggle overlay
         if e.key == 'd':
-            toggle_prediction_overlay()
+            toggle_overlay()
+        
+        if e.key == 'f':
+            cycle_overlay()
 
     if e.modifiers.ctrl and e.action.keydown and not e.action.repeat:
 
         if e.key == 'z':
             annotator.undo_annotation()
-            redraw_overlay()
+            redraw()
 
         if e.key == 'y':
             annotator.redo_annotation()
-            redraw_overlay()
+            redraw()
 
         if e.key == 's':
             if (len(train_samples) == 0) and (annotator.get_num_unique_colors() != num_classes):
                 ui.notify(f'The first image in the dataset must contain at least one annotation for each class.'
-                        f'The number of classes is set to {num_classes} and only {annotator.get_num_unique_colors()} classes annotated.')
+                          f'The number of classes is set to {num_classes} and only {annotator.get_num_unique_colors()} classes annotated.')
             else:
+                mask_slice = annotator.mask
+                slice_data = {'volume' : dataset[volume_index].filename,
+                              'slicer' : dataset[volume_index].slicer.to_dict()}
+                utils.save_sample(image_slice, mask_slice, slice_data, num_classes)
 
-                mask_slice = utils.get_mask(annotator.annotations, input_size)
-                volume_name = str(volume_files[volume_index].split('image_volumes/')[-1])
-                slice_data = np.array([volume_name, slicers[volume_index].to_dict()])
-                utils.save_sample(image_slice, mask_slice, slice_data)
-
-                train_samples = glob.glob('data/train/images/*.tiff')  
-                val_samples = glob.glob('data/val/images/*.tiff')
+                train_samples = glob.glob('data/train/images/*.tiff')
 
                 ui_select_input_size.disable()
                 ui_select_num_classes.disable()
 
+                randomize()
                 clear()
 
 
 def mouse_handler(e: events.MouseEventArguments):
     global annotator, interacting, color_idx, color_idx_prev
 
-    if e.type == 'mousedown':
+    if e.type == 'mousedown' and e.button != 1:
         # 0 is left, 2 is right
 
         if e.button == 0 and e.shift:
@@ -285,7 +297,16 @@ def mouse_handler(e: events.MouseEventArguments):
                 color_idx = 0
 
             ii.is_drawing = True
-            annotator.new_path(e.image_x, e.image_y, ii.brush_size, colors[color_idx])
+            ii.mode = 'paint'
+            annotator.new_path(e.image_x, e.image_y, ii.brush_size, colors[color_idx], mode=ii.mode, overlay=ii.overlay)
+
+        if not e.alt and e.ctrl and not e.shift:
+
+            if len(annotator.overlays) > 0:
+
+                ii.is_drawing = True
+                ii.mode = 'capture_overlay'
+                annotator.new_path(e.image_x, e.image_y, ii.brush_size, colors[color_idx], mode=ii.mode, overlay=ii.overlay)
         
     if e.type == 'mousemove':
 
@@ -296,7 +317,7 @@ def mouse_handler(e: events.MouseEventArguments):
 
         # Continue current path
         if ii.is_drawing:
-            annotator.continue_path(ii.x, ii.y, e.image_x, e.image_y, ii.brush_size, colors[color_idx])
+            annotator.continue_path(ii.x, ii.y, e.image_x, e.image_y, ii.brush_size, colors[color_idx], mode=ii.mode, overlay=ii.overlay)
         
     if e.type == 'mouseup':
 
@@ -307,7 +328,11 @@ def mouse_handler(e: events.MouseEventArguments):
         if e.button == 2:
             color_idx = color_idx_prev
 
-        ii.is_drawing = False
+        if ii.is_drawing:
+            ii.is_drawing = False
+            annotator.apply_current_path()
+            redraw()
+            run_suggestor()
 
     ii.x = e.image_x
     ii.y = e.image_y
@@ -351,25 +376,49 @@ def mouse_wheel_handler(e: KeyEventArguments):
         interacting = False
 
 def update_cursor_opacity(e):
+    global annotator
     ii.cursor_opacity = e.value / 100
     redraw_overlay()
 
 def update_annotation_opacity(e):
+    global annotator
     ii.annotation_opacity = e.value / 100
-    redraw_overlay()
-
-def update_prediction_opacity(e):
-    ii.prediction_opacity = e.value / 100
-    redraw_prediction()
     redraw()
 
-def toggle_prediction_overlay():
-    if ii.prediction_opacity > 0:
-        ii.prediction_opacity = 0
-        ui_slider_prediction_opacity.value = int(ii.prediction_opacity * 100)
-    elif ii.prediction_opacity == 0:
-        ii.prediction_opacity = 0.25
-        ui_slider_prediction_opacity.value = int(ii.prediction_opacity * 100)
+def update_overlay_opacity(e):
+    global annotator
+    ii.overlay_opacity = e.value / 100
+    redraw()
+
+def update_display_info():
+    if ii.overlay_opacity == 0:
+        ui_display_info.set_content('No overlay displayed')
+    else:
+        if ii.overlay == 'live_suggestions':
+            ui_display_info.set_content('Displaying live suggestions')
+        elif ii.overlay == 'model_predictions':
+            ui_display_info.set_content('Displaying model predictions')
+
+def cycle_overlay():
+    global annotator
+
+    keys = np.array(list(annotator.overlays.keys())) 
+    next_idx = np.argwhere(keys == ii.overlay)[0,0] + 1 
+    ii.overlay = keys[next_idx % len(keys)]
+
+    update_display_info()
+    redraw()
+
+def toggle_overlay():
+    global annotator
+    if ii.overlay_opacity > 0:
+        ii.overlay_opacity = 0
+        ui_slider_overlay_opacity.value = int(ii.overlay_opacity * 100)
+    elif ii.overlay_opacity == 0:
+        ii.overlay_opacity = 0.25
+        ui_slider_overlay_opacity.value = int(ii.overlay_opacity * 100)
+    update_display_info()
+    redraw()
 
 def update_num_classes(e):
     global num_classes, color_idx
@@ -378,10 +427,10 @@ def update_num_classes(e):
     clear()
 
 def update_input_size(e):
-    global input_size, image_slice, image_slice_with_overlay
+    global annotator, input_size, image_slice
     input_size = ui_select_input_size.value
-    image_slice = slicers[volume_index].get_slice(volumes[volume_index], slice_width=input_size, order=1).astype('uint8')
-    image_slice_with_overlay = np.repeat(image_slice[:,:,None], 3, axis=2)
+    image_slice = dataset[volume_index].get_slice(slice_width=input_size, order=1).astype('uint8')
+    annotator.set_image(np.repeat(image_slice[:,:,None], 3, axis=2))
     clear()
 
 def update_sampling_mode(e):
@@ -429,7 +478,7 @@ def defocus():
 
     ui_slider_cursor_opacity.run_method('blur')
     ui_slider_annotation_opacity.run_method('blur')
-    ui_slider_prediction_opacity.run_method('blur')
+    ui_slider_overlay_opacity.run_method('blur')
 
     ui_button_clear_model.run_method('blur')
     ui_button_clear_annotations.run_method('blur')
@@ -437,12 +486,13 @@ def defocus():
 
     ui_button_predict.run_method('blur')
 
+    ui_button_build_annotation_volumes.run_method('blur')
     ui_button_train.run_method('blur')
     ui_select_plot_metric.run_method('blur')
     ui_plotly_training_plot.run_method('blur')
 
 async def clear_annotations(e):
-    global train_samples, val_samples
+    global train_samples
 
     confirmation_label.text = "This will remove all saved annotations. Are you sure you want to do this?"
 
@@ -450,8 +500,7 @@ async def clear_annotations(e):
     if result == 'Yes':
         utils.clear_annotations()
 
-    train_samples = glob.glob('data/train/images/*.tiff')  
-    val_samples = glob.glob('data/val/images/*.tiff')
+    train_samples = glob.glob('data/train/images/*.tiff')
     ui_select_input_size.enable()
     ui_select_num_classes.enable()
 
@@ -468,7 +517,7 @@ async def clear_model():
     ui_checkbox_pretrained.enable()
 
 async def reset_all():
-    global train_samples, val_samples
+    global train_samples
 
     confirmation_label.text = "This will erase all training progress and delete all saved annotations. Are you sure you want to do this?"
     
@@ -476,23 +525,57 @@ async def reset_all():
     if result == 'Yes':
         utils.reset_all()
 
-    train_samples = glob.glob('data/train/images/*.tiff')  
-    val_samples = glob.glob('data/val/images/*.tiff')
+    train_samples = glob.glob('data/train/images/*.tiff')
     ui_select_input_size.enable()
     ui_select_num_classes.enable()
     ui_select_architecture.enable()
     ui_select_encoder.enable()
     ui_checkbox_pretrained.enable()
 
-def train_model():
+def build_annotation_volumes():
+    utils.build_annotation_volumes(dataset)
+    ui.notify("Finished rebuilding annotation volumes.")
+
+# def train_model():
+
+#     # Not necessary, 3D U-Net models not implemented yet
+#     # utils.build_annotation_volumes(dataset)
+
+#     kwargs = {'lr' : ui_select_lr.value,
+#               'batch_size' : ui_select_batch_size.value,
+#               'epochs' : ui_select_num_epochs.value,
+#               'num_channels' : 1,
+#               'num_classes' : num_classes,
+#               'loss_function_name' : ui_select_loss_function.value,
+#               'architecture' : ui_select_architecture.value,
+#               'encoder_name' : ui_select_encoder.value,
+#               'pretrained' : ui_checkbox_pretrained.value}
+
+#     with open('model/model_details.pkl', 'wb') as f:
+#         pickle.dump(kwargs, f)
+
+#     ui_select_architecture.disable()
+#     ui_select_encoder.disable()
+#     ui_checkbox_pretrained.disable()
+
+#     training_thread = threading.Thread(target=trainer.train_model, args=(), kwargs=kwargs)
+#     training_thread.start()
+
+async def train_model():
+    global training
+
+    # Not necessary, 3D U-Net models not implemented yet
+    # utils.build_annotation_volumes(dataset)
+
     kwargs = {'lr' : ui_select_lr.value,
-            'batch_size' : ui_select_batch_size.value,
-            'epochs' : ui_select_num_epochs.value,
-            'num_classes' : num_classes,
-            'loss_function_name' : ui_select_loss_function.value,
-            'architecture' : ui_select_architecture.value,
-            'encoder_name' : ui_select_encoder.value,
-            'pretrained' : ui_checkbox_pretrained.value}
+              'batch_size' : ui_select_batch_size.value,
+              'epochs' : ui_select_num_epochs.value,
+              'num_channels' : 1,
+              'num_classes' : num_classes,
+              'loss_function_name' : ui_select_loss_function.value,
+              'architecture' : ui_select_architecture.value,
+              'encoder_name' : ui_select_encoder.value,
+              'pretrained' : ui_checkbox_pretrained.value}
 
     with open('model/model_details.pkl', 'wb') as f:
         pickle.dump(kwargs, f)
@@ -501,47 +584,141 @@ def train_model():
     ui_select_encoder.disable()
     ui_checkbox_pretrained.disable()
 
-    training_thread = threading.Thread(target=trainer.train_model, args=(), kwargs=kwargs)
-    training_thread.start()
+    training = True
 
+    ui_button_train.disable()
+    ui_button_predict_volumes.disable()
+
+    result = await run.cpu_bound(trainer.train_model, *list(kwargs.values()))
+
+    ui_button_train.enable()
+    ui_button_predict_volumes.enable()
+
+    training = False
 
 def predict_slice():
-    global prediction
-    prediction = predict.predict_slice(image_slice, num_classes=num_classes) / 255
 
-    ii.prediction_opacity = 0.25
-    ui_slider_prediction_opacity.value = int(ii.prediction_opacity * 100)
+    def predict_slice_function():
+        global annotator, predicting
 
-    redraw_prediction()
-    redraw()
+        annotator.overlays['model_predictions'] = predict.predict_slice(image_slice, num_classes=num_classes)
+        ii.overlay = 'model_predictions'
+        update_display_info()
 
-def predict_volumes():
-    predict.predict_volumes(input_size=input_size, num_classes=num_classes)
+        ii.overlay_opacity = 0.25
+        ui_slider_overlay_opacity.value = int(ii.overlay_opacity * 100)
+
+        redraw()
+
+    predict_slice_thread = threading.Thread(target=predict_slice_function)
+    predict_slice_thread.start()
+
+# def predict_volumes():
+
+#     kwargs = {'input_size': input_size,
+#               'num_classes' : num_classes}
+
+#     training_thread = threading.Thread(target=predict.predict_volumes, args=(), kwargs=kwargs)
+#     training_thread.start()
+
+async def predict_volumes():
+    global predicting
+
+    ui_button_train.disable()
+    ui_button_predict_volumes.disable()
+
+    result = await run.cpu_bound(predict.predict_volumes, input_size=input_size, num_classes=num_classes)
+
+    ui_button_train.enable()
+    ui_button_predict_volumes.enable()
+
+    predicting = False
+
+def extract_features():
+    global extracting
+
+    extracting = True
+
+    image = (image_slice / 255.0).astype('float32')
+
+    # torch.set_float32_matmul_precision('medium')
+    # extractor = suggestor.FeatureExtractor('dinov2', layers=[8], attn_vector='k', stride=7).eval().cuda()
+
+    # scales = [512,256]
+    # feature_dim = 2
+
+    # import time
+
+    # start_time = time.time()
+
+    # for scale in scales:
+    #     ii.image_features['features_list'].append(suggestor.get_dense_features(image, extractor, scale=scale))
+    #     print(f'Finished scale: {scale}')
+
+    # features = np.mean(ii.image_features['features_list'], 0)
+    # features = suggestor.feature_pca(features, feature_dim=feature_dim)
+    # features = suggestor.remove_banding(features)
+
+    # # Add original image to feature list
+    # features = np.concatenate([image[None,None], features], axis=1)
+
+    # ii.image_features['features'] = features
+    
+    # print(f'Finished feature extraction in {time.time() - start_time}')
+
+    ii.image_features['features'] = image[None,None]
+
+    extracting = False
+
+    
+def run_suggestor():
+    global suggesting, extracting
+
+    if ii.image_features['features'] is None:
+        if not extracting:
+            feature_extractor_thread = threading.Thread(target=extract_features)
+            feature_extractor_thread.start()
+
+    if ii.image_features['features'] is not None:
+        if not extracting:
+            def suggestor_function():
+                global annotator, suggesting
+
+                suggesting = True
+
+                if ii.suggestor_model is None:
+                    suggestions, suggestor_model = suggestor.make_suggestions(ii.image_features['features'], annotator.mask)
+                else:
+                    suggestions, suggestor_model = suggestor.make_suggestions(ii.image_features['features'], annotator.mask, model=ii.suggestor_model)
+
+                if suggestions is not None:
+
+                    annotator.overlays['live_suggestions'] = suggestions
+                    ii.overlay = 'live_suggestions'
+                    update_display_info()
+
+                    ii.suggestor_model = suggestor_model
+
+                    redraw()
+
+                suggesting = False
+            
+            # suggestor_function()
+            if not suggesting:        
+                suggestor_thread = threading.Thread(target=suggestor_function)
+                suggestor_thread.start()
 
 def check_volume_folder():
-    global volume_files, volumes, slicers
+    global dataset
 
-    old_file_count = len(volume_files)
     volume_files = np.sort(glob.glob('data/image_volumes/*.npy'))
-    new_file_count = len(volume_files)
 
     ui_volume_count.content = f'Volumes: {len(volume_files)}'
     ui_sample_count.content = f'Samples: {len(train_samples)}'
 
-    if new_file_count != old_file_count:
-        volumes = []
-        slicers = []
-        
-        if new_file_count > 0:
-            volumes = []
-            slicers = []
-            for f in volume_files:
-                volumes.append(np.load(f))
-                slicers.append(Slicer(volumes[-1].shape))
-            volume_index = np.random.randint(len(volumes))
-            randomize()
-        if new_file_count == 0:
-            randomize()
+    if len(dataset) != len(volume_files):
+        dataset = utils.load_dataset()
+        randomize()
 
 ui.page_title('Interactive Segmentation')
 with ui.column(align_items='center').classes('w-full justify-center'):
@@ -556,7 +733,7 @@ with ui.column(align_items='center').classes('w-full justify-center'):
                 
                 with ui.row(align_items='center').classes('bg-gray-100 w-full justify-center no-wrap'):
                     with ui.element('div').classes('justify-center'):
-                        ui_volume_count = ui.markdown(f'Volumes: {len(volume_files)}')
+                        ui_volume_count = ui.markdown(f'Volumes: {len(dataset)}')
 
                     with ui.element('div').classes('justify-center'):
                         ui_sample_count = ui.markdown(f'Samples: {len(train_samples)}')
@@ -588,7 +765,7 @@ with ui.column(align_items='center').classes('w-full justify-center'):
                     with ui.row(align_items='center').classes('w-full justify-center no-wrap'):
 
                         ui_select_encoder = ui.select(smp.encoders.get_encoder_names(), 
-                                                    value='efficientnet-b3', 
+                                                    value='mit_b0',
                                                     label='U-Net Encoder').props('filled').classes('w-3/4')
                         ui_checkbox_pretrained = ui.checkbox('Pretrained',
                                                             value=True).classes('w-1/4')
@@ -614,7 +791,7 @@ with ui.column(align_items='center').classes('w-full justify-center'):
                                                     value=2,
                                                     label='Batch size').props('filled').classes('w-full')
                     ui_select_num_epochs = ui.select([10,20,30,40,50,60,70,80,90,100],
-                                                    value=50,
+                                                    value=100,
                                                     label='Num epochs').props('filled').classes('w-full')
                     ui_select_loss_function = ui.select(['Crossentropy (CE)', 'Dice',
                                                         'Intersection over Union (IoU)', 
@@ -649,8 +826,8 @@ with ui.column(align_items='center').classes('w-full justify-center'):
 
                     with ui.row(align_items='center').classes('w-full justify-center no-wrap'):
                         
-                        ui.markdown('Prediction opacity').classes('w-1/2')
-                        ui_slider_prediction_opacity = ui.slider(min=0, max=100, value=25, on_change=update_prediction_opacity).classes('w-1/2')
+                        ui.markdown('Overlay opacity').classes('w-1/2')
+                        ui_slider_overlay_opacity = ui.slider(min=0, max=100, value=25, on_change=update_overlay_opacity).classes('w-1/2')
 
                 with ui.expansion(text='Project settings').props('dense').classes('w-full'):
 
@@ -663,6 +840,10 @@ with ui.column(align_items='center').classes('w-full justify-center'):
 
         with ui.column():
 
+            with ui.row(align_items='center').classes('bg-gray-100 w-full justify-center no-wrap'):
+                with ui.element('div').classes('justify-center'):
+                    ui_display_info = ui.markdown(f'No overlay displayed')
+
             ii = ui.interactive_image(on_mouse=mouse_handler, size=(canvas_size, canvas_size),
                                     events=['mousedown', 'mousemove', 'mouseup'])
             ii.on('wheel', mouse_wheel_handler)
@@ -671,8 +852,6 @@ with ui.column(align_items='center').classes('w-full justify-center'):
 
         with ui.column().classes('w-1/4'):
 
-            ui_button_train = ui.button('Train', on_click=train_model).props('filled').classes('w-full')
-
             ui_select_plot_metric = ui.select(['Loss', 'Dice', 'IoU', 'MCC'],
                                             value='Loss',
                                             label='Plot metric',
@@ -680,7 +859,12 @@ with ui.column(align_items='center').classes('w-full justify-center'):
 
             ui_plotly_training_plot = ui.plotly(fig).classes('w-full h-96')
 
+            ui_button_train = ui.button('Train', on_click=train_model).props('filled').classes('w-full')
+
             ui_button_predict_volumes = ui.button('Predict volumes', on_click=predict_volumes).props('filled').classes('w-full')
+            
+            with ui.expansion(text='Advanced options').props('dense').classes('w-full'):
+                ui_button_build_annotation_volumes = ui.button('Rebuild annotation volumes', on_click=build_annotation_volumes).props('filled').classes('w-full')
 
 
 volume_timer = ui.timer(2.0, callback=check_volume_folder)
@@ -699,4 +883,5 @@ with ui.dialog() as dialog, ui.card():
 
 randomize()
 
-ui.run(host='0.0.0.0', port=9546, show=False, reload=False)
+# ui.run(host='0.0.0.0', port=9546, show=False, reload=False)
+ui.run(reload=True)

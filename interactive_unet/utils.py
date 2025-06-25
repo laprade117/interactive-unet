@@ -1,66 +1,71 @@
-import io
 import cv2
 import glob
 import shutil
-import requests
 import numpy as np
 import pandas as pd
-import tifffile as tiff
+from skimage import io
 from pathlib import Path
 from scipy import ndimage
-from skimage.io import imsave
 
-from interactive_unet import metrics
+from interactive_unet import metrics, volumedata
 
-def download_example_data():
+def load_dataset(annotations=False):
+
+    image_volume_files = np.sort(glob.glob('data/image_volumes/*.npy'))
+
+    dataset = []
+    if len(image_volume_files) > 0:
+        dataset = [volumedata.VolumeData(f, annotations=annotations) for f in image_volume_files]
+
+    return dataset
+
+def build_annotation_volumes(dataset):
+    for i in range(len(dataset)):
+        print(f'{i}/{len(dataset)} - Rebuilding annotation volumes for {dataset[i].filename}')
+        dataset[i].build_annotation_volumes()
+    print(f'Rebuilding complete.')
+
+def get_input_size():
+
+    input_size = 512
+
+    train_masks = glob.glob('data/train/masks/*.tiff')  
+
+    if len(train_masks) > 0:
+        mask = io.imread(train_masks[0])
+        input_size = mask.shape[0]
     
-    url = 'https://documents.epfl.ch/groups/c/cv/cvlab-unit/www/data/%20ElectronMicroscopy_Hippocampus/training.tif'
-    resp = requests.get(url)
-    volume = np.array(tiff.imread(io.BytesIO(resp.content)))
+    return input_size
 
-    np.save('data/image_volumes/test_vol.npy', volume)
+def get_num_classes():
+
+    num_classes = 2
+
+    train_masks = glob.glob('data/train/masks/*.tiff')
+
+    if len(train_masks) > 0:
+        mask = io.imread(train_masks[0])
+        num_classes = np.unique(mask.reshape(-1, mask.shape[-1]), axis=0).shape[0] - 1
+
+    return num_classes
 
 def normalize(x):
     x = x - np.min(x)
     x = x / np.max(x)
     return x
 
-def get_mask(annotations, mask_size):
-
-    oversampled_mask_size = 8 * mask_size
+def save_sample(image_slice, mask_slice, slice_data, num_classes=None):
     
-    mask = np.zeros((oversampled_mask_size, oversampled_mask_size, 3), dtype='uint8')
-
-    for i in range(len(annotations)):
-
-        path = annotations[i]
-
-        for j in range(len(path)):
-
-            x0, y0, x1, y1, brush_size, color = path[j]
-            x0 = int(np.round(x0 * oversampled_mask_size))
-            y0 = int(np.round(y0 * oversampled_mask_size))
-            x1 = int(np.round(x1 * oversampled_mask_size))
-            y1 = int(np.round(y1 * oversampled_mask_size))
-            brush_size = brush_size * oversampled_mask_size
-
-            color = color.split('(')[-1].split(')')[0].split(',')
-            color = (int(color[2]), int(color[1]), int(color[0]))
-            
-            cv2.circle(mask, (x0,y0), int(np.round(brush_size/2)), color, -1)
-            cv2.line(mask, (x0,y0), (x1,y1), color, int(np.round(brush_size)))
-
-            if j == len(path) - 1:
-                cv2.circle(mask, (x1,y1), int(np.round(brush_size/2)), color, -1)
-
-    mask = cv2.resize(mask, (mask_size, mask_size), interpolation=cv2.INTER_NEAREST)[...,::-1]
-
-
-    return mask
-
-def save_sample(image_slice, mask_slice, slice_data):
+    # Set the corner pixels to ensure the mask always has at least one pixel for each class to prevent divide by zero errors.
+    # I should find a better method, this is just stupid.
+    if num_classes is not None:
+        colors = np.array([[0,0,0], [230, 25, 75], [60, 180, 75], [255, 225, 25], [0, 130, 200], [245, 130, 48],
+                           [145, 30, 180], [70, 240, 240], [240, 50, 230], [210, 245, 60], [170, 255, 195]])
+        for i in range(num_classes + 1):
+            mask_slice[0,i,:] = colors[i]
 
     _, weight_slice = colored_to_categorical(mask_slice)
+    weight_slice[0,:num_classes+1] = 0
 
     # Generate noise to define train-val split
     noise = normalize(ndimage.gaussian_filter(np.random.rand(image_slice.shape[0],image_slice.shape[1]), 2)) > 0.5
@@ -75,19 +80,20 @@ def save_sample(image_slice, mask_slice, slice_data):
 
     # Save training sample
     n_samples = len(glob.glob("data/train/images/*.tiff"))
-    imsave(f'data/train/images/{n_samples:04d}.tiff', image_slice)
-    imsave(f'data/train/masks/{n_samples:04d}.tiff', mask_slice)
-    imsave(f'data/train/weights/{n_samples:04d}.tiff', train_weight_slice)
+    io.imsave(f'data/train/images/{n_samples:04d}.tiff', image_slice)
+    io.imsave(f'data/train/masks/{n_samples:04d}.tiff', mask_slice)
+    io.imsave(f'data/train/weights/{n_samples:04d}.tiff', train_weight_slice)
     np.save(f'data/train/slices/{n_samples:04d}.npy', slice_data)
 
     # Save validation sample
     n_samples = len(glob.glob("data/val/images/*.tiff"))
-    imsave(f'data/val/images/{n_samples:04d}.tiff', image_slice)
-    imsave(f'data/val/masks/{n_samples:04d}.tiff', mask_slice)
-    imsave(f'data/val/weights/{n_samples:04d}.tiff', val_weight_slice)
+    io.imsave(f'data/val/images/{n_samples:04d}.tiff', image_slice)
+    io.imsave(f'data/val/masks/{n_samples:04d}.tiff', mask_slice)
+    io.imsave(f'data/val/weights/{n_samples:04d}.tiff', val_weight_slice)
     np.save(f'data/val/slices/{n_samples:04d}.npy', slice_data)
 
 # Folder and data functions -------------------------------------------------------------------------------------
+
 def create_directories():
 
     Path("data/image_volumes").mkdir(parents=True, exist_ok=True)
@@ -134,21 +140,30 @@ def reset_all():
 
 # Data representation functions -------------------------------------------------------------------------------------
 
-def colored_to_categorical(colored_mask):
-
+def get_unique_colors(colored_mask):
+    '''
+    Gets list of unique colors in correct order corresponding to the class colors.
+    '''
+    
     colors = np.array([[0,0,0], [230, 25, 75], [60, 180, 75], [255, 225, 25], [0, 130, 200], [245, 130, 48],
                        [145, 30, 180], [70, 240, 240], [240, 50, 230], [210, 245, 60], [170, 255, 195]])
     
     unique_colors = np.unique(colored_mask.reshape(-1, colored_mask.shape[-1]), axis=0)
-
     idx_fixed = np.nonzero(np.all(colors[:, None] == unique_colors, axis=2))[1]
     unique_colors = unique_colors[idx_fixed]
     
-    mask = np.stack([np.all(colored_mask == color, axis=-1).astype(np.uint8) for color in unique_colors], axis=-1) * 255
+    return unique_colors
+
+def colored_to_categorical(colored_mask, include_background=True):
+
+    unique_colors = get_unique_colors(colored_mask)
     
+    mask = np.stack([np.all(colored_mask == color, axis=-1).astype(np.uint8) for color in unique_colors], axis=-1) * 255
+
+    # Check if contains unlabeled pixels
     weight = 255 - mask[:,:,0]
     mask = mask[:,:,1:]
-
+    
     return mask, weight
 
 def categorical_to_colored(mask):
@@ -162,28 +177,30 @@ def categorical_to_colored(mask):
     
     return colored_mask
 
+def colored_to_class(colored_mask):
 
-# Miscellaneous helper functions -------------------------------------------------------------------------------------
+    categorical_mask, _ = colored_to_categorical(colored_mask)
+    categorical_mask = (categorical_mask > 0).astype('uint8')
+    mask = np.zeros((categorical_mask.shape[0], categorical_mask.shape[1]), dtype='uint8')
 
-def loss_name_to_function(loss_function_name):
+    for i in range(categorical_mask.shape[-1]):
+        mask[categorical_mask[...,i] > 0] = i
 
-    if loss_function_name == 'Crossentropy (CE)':
-        loss_function = metrics.crossentropy_loss
-    elif loss_function_name == 'Dice':
-        loss_function = metrics.dice_loss
-    elif loss_function_name == 'Intersection over Union (IoU)':
-        loss_function = metrics.iou_loss
-    elif loss_function_name == 'Matthews correlation coefficient (MCC)':
-        loss_function = metrics.mcc_loss
-    elif loss_function_name == 'Dice + CE':
-        loss_function = metrics.dice_ce_loss
-    elif loss_function_name == 'IoU + CE':
-        loss_function = metrics.iou_ce_loss
-    elif loss_function_name == 'MCC + CE':
-        loss_function = metrics.mcc_ce_loss
+    return mask
 
-    return loss_function
+def class_to_categorical(class_mask, num_classes, weight=None):
 
+    if weight is None:
+        weight = np.ones(class_mask.shape)
+    
+    categorical_mask = np.zeros((class_mask.shape[0], class_mask.shape[1], num_classes), dtype='uint8')
+    
+    for i in range(num_classes):
+        categorical_mask[:,:,i] = (class_mask == i) * weight
+        
+    return categorical_mask
+
+# Plotly training history functions -------------------------------------------------------------------------------------
 
 def get_training_history(metric='Loss'):
     
@@ -255,3 +272,25 @@ def get_training_history_figure(metric):
     }
 
     return fig
+
+
+# Miscellaneous helper functions -------------------------------------------------------------------------------------
+
+def loss_name_to_function(loss_function_name):
+
+    if loss_function_name == 'Crossentropy (CE)':
+        loss_function = metrics.crossentropy_loss
+    elif loss_function_name == 'Dice':
+        loss_function = metrics.dice_loss
+    elif loss_function_name == 'Intersection over Union (IoU)':
+        loss_function = metrics.iou_loss
+    elif loss_function_name == 'Matthews correlation coefficient (MCC)':
+        loss_function = metrics.mcc_loss
+    elif loss_function_name == 'Dice + CE':
+        loss_function = metrics.dice_ce_loss
+    elif loss_function_name == 'IoU + CE':
+        loss_function = metrics.iou_ce_loss
+    elif loss_function_name == 'MCC + CE':
+        loss_function = metrics.mcc_ce_loss
+
+    return loss_function

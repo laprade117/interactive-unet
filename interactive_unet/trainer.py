@@ -13,18 +13,17 @@ def train_model(lr=0.0001, batch_size=1, epochs=10,
                  num_channels=1, num_classes=2,
                  loss_function_name='MCC + CE',
                  architecture='U-Net',
-                 encoder_name='mobileone_s4',
-                 pretrained=True):
+                 encoder_name='mit_b0',
+                 pretrained=True,
+                 reslice=False,
+                 reslice_factor=2):
 
     torch.set_float32_matmul_precision('medium')
 
-    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    train_folder = f'data/train'
-    val_folder = f'data/val'
-
-    train_loader = loader.get_data_loader(train_folder, batch_size, augment=True, shuffle=True)
-    val_loader = loader.get_data_loader(val_folder, batch_size, augment=False, shuffle=False)
+    train_loader = loader.get_data_loader(set_type='train', num_classes=num_classes, batch_size=batch_size,
+                                          reslice=reslice, reslice_factor=reslice_factor, augment=True, shuffle=True)
+    val_loader = loader.get_data_loader(set_type='val', num_classes=num_classes, batch_size=batch_size,
+                                        reslice=False, reslice_factor=reslice_factor, augment=False, shuffle=False)
 
     loss_function = utils.loss_name_to_function(loss_function_name)
 

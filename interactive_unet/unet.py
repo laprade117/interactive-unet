@@ -16,7 +16,7 @@ class UNet(L.LightningModule):
                  num_channels=1, num_classes=2,
                  loss_function=metrics.mcc_ce_loss,
                  architecture='U-Net',
-                 encoder_name='mobileone_s4',
+                 encoder_name='mit_b0',
                  pretrained=True):
         super().__init__()
         
@@ -81,9 +81,9 @@ class UNet(L.LightningModule):
         y_hat = torch.round(y_hat)
         
         self.log(f"{set_name}/Loss", loss, prog_bar=True, on_step=False, on_epoch=True)
-        self.log(f"{set_name}/Dice", metrics.dice(y_hat, y, w, axes=[2,3]), on_step=False, on_epoch=True)
-        self.log(f"{set_name}/IoU", metrics.iou(y_hat, y, w, axes=[2,3]), on_step=False, on_epoch=True)
-        self.log(f"{set_name}/MCC", metrics.mcc(y_hat, y, w, axes=[2,3]), on_step=False, on_epoch=True)
+        self.log(f"{set_name}/Dice", metrics.dice(y_hat, y, w, axes=[0,2,3]), on_step=False, on_epoch=True)
+        self.log(f"{set_name}/IoU", metrics.iou(y_hat, y, w, axes=[0,2,3]), on_step=False, on_epoch=True)
+        self.log(f"{set_name}/MCC", metrics.mcc(y_hat, y, w, axes=[0,2,3]), on_step=False, on_epoch=True)
         
     def training_step(self, batch):
         
@@ -95,7 +95,7 @@ class UNet(L.LightningModule):
         y_hat = self(X)
 
         # Compute loss
-        loss = self.loss_function(y_hat, y, w, axes=[2,3])
+        loss = self.loss_function(y_hat, y, w, axes=[0,2,3])
         
         # Log metrics to wandb
         self._log_metrics('train', loss, y_hat, y, w)
@@ -110,7 +110,7 @@ class UNet(L.LightningModule):
         y_hat = self(X)
         
         # Compute loss
-        loss = self.loss_function(y_hat, y, w, axes=[2,3])
+        loss = self.loss_function(y_hat, y, w, axes=[0,2,3])
         
         # Log metrics to wandb
         self._log_metrics('val', loss, y_hat, y, w)
