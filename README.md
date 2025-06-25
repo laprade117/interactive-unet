@@ -14,9 +14,9 @@ Run the tool in a designated project folder using:
 
 `interactive-unet`
 
-This will create the necessary folder structure at the current working directory and then provide a link that can be opened in any web browser to access the interface.
+This will create the necessary folder structure at the current working directory and then provide a link that can be opened in any web browser to access the interface. On first run, the tool will automatically download a sample volume to get started.
 
-Next, copy any 3D volumetric images that you want to segment into the `data/image_volumes` folder. Ensure they are stored as numpy (.npy) files in `uint8`. Shape and size doesn't matter as long as all the volumes that you place in this folder can all be loaded into RAM simultaneously.
+To work with your own data, remove the sample volume from `data/image_volumes` folder and copy any 3D volumetric images that you want to segment into the same folder. Ensure they are stored as numpy (.npy) files in `uint8`. Shape and size doesn't matter as long as all the volumes that you place in this folder can all be loaded into RAM simultaneously.
 
 Using the paint tool annotate at least one image and then train a model. Repeat until desired segmentation result.
 

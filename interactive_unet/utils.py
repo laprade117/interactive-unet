@@ -1,13 +1,20 @@
 import cv2
 import glob
+import time
 import shutil
+import urllib
 import numpy as np
 import pandas as pd
-from skimage import io
+import tifffile as tiff
 from pathlib import Path
 from scipy import ndimage
+from skimage.io import imsave, imread
 
 from interactive_unet import metrics, volumedata
+
+def download_example_data():
+    url = 'https://filestash.qim.dk/api/files/cat?path=%2Fsample_data.npy&share=evZRE58'
+    urllib.request.urlretrieve(url, 'data/image_volumes/sample_volume.npy')
 
 def load_dataset(annotations=False):
 
@@ -32,7 +39,7 @@ def get_input_size():
     train_masks = glob.glob('data/train/masks/*.tiff')  
 
     if len(train_masks) > 0:
-        mask = io.imread(train_masks[0])
+        mask = imread(train_masks[0])
         input_size = mask.shape[0]
     
     return input_size
@@ -44,7 +51,7 @@ def get_num_classes():
     train_masks = glob.glob('data/train/masks/*.tiff')
 
     if len(train_masks) > 0:
-        mask = io.imread(train_masks[0])
+        mask = imread(train_masks[0])
         num_classes = np.unique(mask.reshape(-1, mask.shape[-1]), axis=0).shape[0] - 1
 
     return num_classes
@@ -80,16 +87,16 @@ def save_sample(image_slice, mask_slice, slice_data, num_classes=None):
 
     # Save training sample
     n_samples = len(glob.glob("data/train/images/*.tiff"))
-    io.imsave(f'data/train/images/{n_samples:04d}.tiff', image_slice)
-    io.imsave(f'data/train/masks/{n_samples:04d}.tiff', mask_slice)
-    io.imsave(f'data/train/weights/{n_samples:04d}.tiff', train_weight_slice)
+    imsave(f'data/train/images/{n_samples:04d}.tiff', image_slice)
+    imsave(f'data/train/masks/{n_samples:04d}.tiff', mask_slice)
+    imsave(f'data/train/weights/{n_samples:04d}.tiff', train_weight_slice)
     np.save(f'data/train/slices/{n_samples:04d}.npy', slice_data)
 
     # Save validation sample
     n_samples = len(glob.glob("data/val/images/*.tiff"))
-    io.imsave(f'data/val/images/{n_samples:04d}.tiff', image_slice)
-    io.imsave(f'data/val/masks/{n_samples:04d}.tiff', mask_slice)
-    io.imsave(f'data/val/weights/{n_samples:04d}.tiff', val_weight_slice)
+    imsave(f'data/val/images/{n_samples:04d}.tiff', image_slice)
+    imsave(f'data/val/masks/{n_samples:04d}.tiff', mask_slice)
+    imsave(f'data/val/weights/{n_samples:04d}.tiff', val_weight_slice)
     np.save(f'data/val/slices/{n_samples:04d}.npy', slice_data)
 
 # Folder and data functions -------------------------------------------------------------------------------------
@@ -112,6 +119,14 @@ def create_directories():
     Path("data/val/slices").mkdir(parents=True, exist_ok=True)
 
     Path("model").mkdir(parents=True, exist_ok=True)
+
+    # Download sample data if no volumes exist
+    if len(glob.glob('data/image_volumes/*')) == 0:
+        print('No volumetric data found. Downloading sample volume...')
+        start_time = time.time()
+        download_example_data()
+        end_time = time.time()
+        print(f'Download completed in {end_time - start_time:.02f} seconds. \n')
 
 def clear_annotations(): 
 

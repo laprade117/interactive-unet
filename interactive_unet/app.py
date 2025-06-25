@@ -16,13 +16,11 @@ from nicegui.events import KeyEventArguments
 
 import segmentation_models_pytorch as smp
 
-import torch
-
 from interactive_unet.slicer import Slicer
 from interactive_unet.annotator import Annotator
 from interactive_unet import utils, trainer, predict, suggestor
 
-# Creates initial directory structure if note already created
+# Creates initial directory structure if not already created
 utils.create_directories()
 
 # Load data
@@ -536,31 +534,6 @@ def build_annotation_volumes():
     utils.build_annotation_volumes(dataset)
     ui.notify("Finished rebuilding annotation volumes.")
 
-# def train_model():
-
-#     # Not necessary, 3D U-Net models not implemented yet
-#     # utils.build_annotation_volumes(dataset)
-
-#     kwargs = {'lr' : ui_select_lr.value,
-#               'batch_size' : ui_select_batch_size.value,
-#               'epochs' : ui_select_num_epochs.value,
-#               'num_channels' : 1,
-#               'num_classes' : num_classes,
-#               'loss_function_name' : ui_select_loss_function.value,
-#               'architecture' : ui_select_architecture.value,
-#               'encoder_name' : ui_select_encoder.value,
-#               'pretrained' : ui_checkbox_pretrained.value}
-
-#     with open('model/model_details.pkl', 'wb') as f:
-#         pickle.dump(kwargs, f)
-
-#     ui_select_architecture.disable()
-#     ui_select_encoder.disable()
-#     ui_checkbox_pretrained.disable()
-
-#     training_thread = threading.Thread(target=trainer.train_model, args=(), kwargs=kwargs)
-#     training_thread.start()
-
 async def train_model():
     global training
 
@@ -613,14 +586,6 @@ def predict_slice():
     predict_slice_thread = threading.Thread(target=predict_slice_function)
     predict_slice_thread.start()
 
-# def predict_volumes():
-
-#     kwargs = {'input_size': input_size,
-#               'num_classes' : num_classes}
-
-#     training_thread = threading.Thread(target=predict.predict_volumes, args=(), kwargs=kwargs)
-#     training_thread.start()
-
 async def predict_volumes():
     global predicting
 
@@ -641,36 +606,10 @@ def extract_features():
 
     image = (image_slice / 255.0).astype('float32')
 
-    # torch.set_float32_matmul_precision('medium')
-    # extractor = suggestor.FeatureExtractor('dinov2', layers=[8], attn_vector='k', stride=7).eval().cuda()
-
-    # scales = [512,256]
-    # feature_dim = 2
-
-    # import time
-
-    # start_time = time.time()
-
-    # for scale in scales:
-    #     ii.image_features['features_list'].append(suggestor.get_dense_features(image, extractor, scale=scale))
-    #     print(f'Finished scale: {scale}')
-
-    # features = np.mean(ii.image_features['features_list'], 0)
-    # features = suggestor.feature_pca(features, feature_dim=feature_dim)
-    # features = suggestor.remove_banding(features)
-
-    # # Add original image to feature list
-    # features = np.concatenate([image[None,None], features], axis=1)
-
-    # ii.image_features['features'] = features
-    
-    # print(f'Finished feature extraction in {time.time() - start_time}')
-
     ii.image_features['features'] = image[None,None]
 
     extracting = False
 
-    
 def run_suggestor():
     global suggesting, extracting
 
@@ -680,7 +619,9 @@ def run_suggestor():
             feature_extractor_thread.start()
 
     if ii.image_features['features'] is not None:
+        
         if not extracting:
+
             def suggestor_function():
                 global annotator, suggesting
 
@@ -703,7 +644,6 @@ def run_suggestor():
 
                 suggesting = False
             
-            # suggestor_function()
             if not suggesting:        
                 suggestor_thread = threading.Thread(target=suggestor_function)
                 suggestor_thread.start()
@@ -863,7 +803,7 @@ with ui.column(align_items='center').classes('w-full justify-center'):
 
             ui_button_predict_volumes = ui.button('Predict volumes', on_click=predict_volumes).props('filled').classes('w-full')
             
-            with ui.expansion(text='Advanced options').props('dense').classes('w-full'):
+            with ui.expansion(text='Other tools').props('dense').classes('w-full'):
                 ui_button_build_annotation_volumes = ui.button('Rebuild annotation volumes', on_click=build_annotation_volumes).props('filled').classes('w-full')
 
 
