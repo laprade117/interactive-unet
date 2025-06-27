@@ -825,4 +825,5 @@ randomize()
 
 # ui.run(host='0.0.0.0', port=9546, show=False, reload=False)
 # ui.run(reload=True)
-ui.run(port=9546, on_air=True)
+# ui.run(port=9546, on_air=True)
+ui.run(port=9546)
