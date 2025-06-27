@@ -824,4 +824,5 @@ with ui.dialog() as dialog, ui.card():
 randomize()
 
 # ui.run(host='0.0.0.0', port=9546, show=False, reload=False)
-ui.run(reload=True, port=9546)
+# ui.run(reload=True)
+ui.run(on_air=True)
