@@ -586,13 +586,13 @@ def predict_slice():
     predict_slice_thread = threading.Thread(target=predict_slice_function)
     predict_slice_thread.start()
 
-async def predict_volumes():
+def predict_volumes():
     global predicting
 
     ui_button_train.disable()
     ui_button_predict_volumes.disable()
 
-    result = await run.cpu_bound(predict.predict_volumes, input_size=input_size, num_classes=num_classes)
+    predict.predict_volumes(input_size=input_size, num_classes=num_classes)
 
     ui_button_train.enable()
     ui_button_predict_volumes.enable()
