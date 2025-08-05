@@ -56,5 +56,7 @@ def train_model(lr=0.0001, batch_size=1, epochs=10,
                         log_every_n_steps=1,
                         callbacks=[checkpoint_callback], 
                         precision='16-mixed',
-                        logger=logger)
+                        logger=logger,
+			accelerator="gpu",
+			devices=1)
     trainer.fit(model, train_loader, val_loader)
