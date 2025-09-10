@@ -13,7 +13,7 @@ from skimage.io import imsave, imread
 from interactive_unet import metrics, volumedata
 
 def download_example_data():
-    url = 'https://filestash.qim.dk/api/files/cat?path=%2Fsample_data.npy&share=evZRE58'
+    url = 'https://filestash.qim.dk/api/files/cat?path=%2Fsample_data.npy&share=57lVz63'
     urllib.request.urlretrieve(url, 'data/image_volumes/sample_volume.npy')
 
 def load_dataset(annotations=False):
