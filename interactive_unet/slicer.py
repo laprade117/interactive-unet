@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.ndimage import map_coordinates
+from scipy import ndimage
 
 """
 A tool used for extracting and replacing randomly (or grid) oriented and positioned slices from a 3D volume.
@@ -16,6 +16,8 @@ class Slicer(object):
         self.origin = self.volume_shape / 2
 
         self._normalize_vectors()
+
+        self.sampling_axis = 'random'
 
     def _normalize_vectors(self):
         """
@@ -112,6 +114,16 @@ class Slicer(object):
 
         return coords
 
+    # def get_interpolation_coords(self, slice_width=256):
+    #     start = -slice_width // 2
+    #     index_range = np.arange(start, start + slice_width)
+
+    #     X, Y = np.meshgrid(index_range, index_range, indexing='ij')
+
+    #     coords = self.origin[:, None, None] + self.u[:, None, None] * X + self.v[:, None, None] * Y
+
+    #     return coords
+
     def get_origin_candidates(self, volume):
         """
         Computes origin candidates positions and weights for class balancing the extracted slices. 
@@ -147,15 +159,18 @@ class Slicer(object):
         """
         Randomizes the orientation vectors and origin.
         """
+
         if sampling_mode == 'grid':
             if sampling_axis == 'random':
-                rotation_vector = np.zeros(3)
-                rotation_vector[np.random.randint(3)] = 1
-            elif sampling_axis == 'x':
+                axes = np.array(['x', 'y', 'z'])
+                self.sampling_axis = axes[np.random.randint(3)]
+            else:
+                self.sampling_axis = sampling_axis
+            if self.sampling_axis == 'x':
                 rotation_vector = np.array([1,0,0])
-            elif sampling_axis == 'y':
+            elif self.sampling_axis == 'y':
                 rotation_vector = np.array([0,1,0])
-            elif sampling_axis == 'z':
+            elif self.sampling_axis == 'z':
                 rotation_vector = np.array([0,0,1])
         elif sampling_mode == 'random':
             rotation_vector = self._generate_uniformly_random_unit_vector()
@@ -172,9 +187,9 @@ class Slicer(object):
             ind = np.random.randint(candidates[candidate_class].shape[0])
             self.origin = candidates[candidate_class][ind]
         else:
-            half_shape = self.volume_shape / 2
-            self.origin = half_shape + origin_shift_range * (np.random.rand(3) * self.volume_shape - half_shape)
-            self.origin = np.clip(self.origin, a_min=np.zeros(3), a_max=self.volume_shape-1)
+            self.origin = np.random.rand(3) * self.volume_shape         # Any voxel in the volume
+            self.origin *= origin_shift_range                           # Any voxel in the first 80%
+            self.origin += self.volume_shape * (1 - origin_shift_range) # Any voxel in middle 80%
 
         return self.rot_vec, self.u, self.v, self.w, self.origin
 
@@ -182,14 +197,35 @@ class Slicer(object):
         """
         Extracts slice from the given volume.
         """
-        
-        if len(volume.shape) > 3:
-            return np.moveaxis(np.array([map_coordinates(volume[...,i],
-                                                         self.get_interpolation_coords(slice_width=slice_width)[axis],
-                                                         order=order) for i in range(volume.shape[-1])]), 0, -1)
-        else:
-            coords = self.get_interpolation_coords(slice_width=slice_width)
-            return map_coordinates(volume, coords[axis], order=order)
+
+        coords = self.get_interpolation_coords(slice_width=slice_width)[axis]
+
+        # Get bounding box for chunk loading with zarr
+        lower = np.floor(np.min(coords, axis=(1,2))).astype(int)
+        upper = np.ceil(np.max(coords, axis=(1,2))).astype(int)
+
+        i0, j0, k0 = lower
+        i1, j1, k1 = upper
+
+        # Ensure no out of bounds for the volume indexing
+        i0, i1 = max(0, i0), min(volume.shape[0], i1)
+        j0, j1 = max(0, j0), min(volume.shape[1], j1)
+        k0, k1 = max(0, k0), min(volume.shape[2], k1)
+
+        # Fix indices so that the extracted slice isn't black
+        if self.sampling_axis == 'x':
+            i1 += 1
+        elif self.sampling_axis == 'y':
+            j1 += 1
+        elif self.sampling_axis == 'z':
+            k1 += 1
+
+        shift = np.array([i0,j0,k0])
+        image_slice = ndimage.map_coordinates(volume[i0:i1, j0:j1, k0:k1],
+                                              coords - shift[:,None,None],
+                                              order=order)
+
+        return image_slice
 
     def update_volume(self, data, volume, axis=0):
         """

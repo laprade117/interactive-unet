@@ -1,6 +1,7 @@
 import cv2
 import glob
 import time
+import zarr
 import shutil
 import urllib
 import numpy as np
@@ -8,17 +9,128 @@ import pandas as pd
 import tifffile as tiff
 from pathlib import Path
 from scipy import ndimage
+from numba import njit, prange
 from skimage.io import imsave, imread
 
 from interactive_unet import metrics, volumedata
 
+def read_volume(path, level=0):
+
+    # Load root node 
+    root = zarr.open(path, mode='r')
+
+    # Ensure the requested multiscale level exists
+    num_scales = len(np.sort(list(root.array_keys())))
+    level = int(np.clip(level, 0, num_scales))
+
+    return root[str(level)]
+
+def resize_volume(src_vol, dst_vol, scale=0.5, block_size=512, order=0):
+    
+    src_shape = np.array(src_vol.shape).astype(int)
+    
+    for i in range(0, src_shape[0], block_size):
+            
+        i0, i1 = i, min(i + block_size, src_shape[0])
+        t_i0, t_i1 = int(i0 * scale), int(i1 * scale)
+        
+        for j in range(0, src_shape[1], block_size):
+            
+            j0, j1 = j, min(j + block_size, src_shape[1])
+            t_j0, t_j1 = int(j0 * scale), int(j1 * scale)
+            
+            for k in range(0, src_shape[2], block_size):
+                
+                k0, k1 = k, min(k + block_size, src_shape[2])
+                t_k0, t_k1 = int(k0 * scale), int(k1 * scale)
+
+                dst_vol[t_i0:t_i1, t_j0:t_j1, t_k0:t_k1] = ndimage.zoom(src_vol[i0:i1, j0:j1, k0:k1], scale, order=order)
+
+def add_multiscales(src_file, scale=0.5):
+
+    # Load root node 
+    root = zarr.open(src_file, mode='r+')
+
+    volume_shape = root['0'].shape
+    chunk_shape = root['0'].chunks
+    shard_shape = root['0'].shards
+    
+    # Number of downscale steps until the final size fits inside a chunk
+    num_steps = int(np.floor(np.log((np.array(volume_shape) / np.array(chunk_shape)).max()) / np.log(1 / scale)))
+
+    # Create multiscale volume
+    for i in range(num_steps):
+        
+        z0 = root[str(i)]
+        
+        z1_shape = tuple(int(x * scale) for x in z0.shape)
+        z1 = root.create_array(name=str(i+1),
+                               shape=z1_shape,
+                               chunks=chunk_shape,
+                               shards=shard_shape,
+                               dtype=z0.dtype,
+                               overwrite=True)
+        resize_volume(z0, z1, scale=scale, block_size=shard_shape[0], order=0)
+        
+    # Clear some memory
+    del root, z0, z1
+
+def create_multiscale_zarr(volume, dst_file, scale=0.5, chunk_size=128, shard_size=256):
+
+    # Create chunk and shard shapes
+    chunk_shape = (chunk_size, chunk_size, chunk_size)
+    shard_shape = (shard_size, shard_size, shard_size)
+
+    # Copy original resolution to first level of the multiscale volume
+    root = zarr.open(dst_file, mode='w')
+    z0 = root.create_array(name='0',
+                        shape=volume.shape,
+                        chunks=chunk_shape,
+                        shards=shard_shape,
+                        dtype=volume.dtype,
+                        overwrite=True)
+    z0[:] = volume
+
+    # Clear some memory
+    del root, z0, volume
+
+    add_multiscales(dst_file, scale=scale)
+
 def download_example_data():
+
+    print('No volumetric data found. Downloading sample volume...')
+    start_time = time.time()
+
+    Path("temp").mkdir(parents=True, exist_ok=True)
+
     url = 'https://filestash.qim.dk/api/files/cat?path=%2Fsample_data.npy&share=57lVz63'
-    urllib.request.urlretrieve(url, 'data/image_volumes/sample_volume.npy')
+    urllib.request.urlretrieve(url, 'temp/sample_volume.npy')
+
+    end_time = time.time()
+    print(f'Download completed in {end_time - start_time:.02f} seconds. \n')
+
+    print('Creating multiscale zarr...')
+    volume = np.load('temp/sample_volume.npy')
+    
+    create_multiscale_zarr(volume, 'data/image_volumes/sample_volume.zarr')
+
+    shutil.rmtree('temp')   
+    print('Done!')
+
+
+# def load_dataset(annotations=False):
+
+#     image_volume_files = np.sort(glob.glob('data/image_volumes/*.npy'))
+
+#     dataset = []
+#     if len(image_volume_files) > 0:
+#         dataset = [volumedata.VolumeData(f, annotations=annotations) for f in image_volume_files]
+
+#     return dataset
 
 def load_dataset(annotations=False):
 
-    image_volume_files = np.sort(glob.glob('data/image_volumes/*.npy'))
+    image_volume_files = np.sort(glob.glob('data/image_volumes/*.zarr'))
 
     dataset = []
     if len(image_volume_files) > 0:
@@ -122,11 +234,7 @@ def create_directories():
 
     # Download sample data if no volumes exist
     if len(glob.glob('data/image_volumes/*')) == 0:
-        print('No volumetric data found. Downloading sample volume...')
-        start_time = time.time()
         download_example_data()
-        end_time = time.time()
-        print(f'Download completed in {end_time - start_time:.02f} seconds. \n')
 
 def clear_annotations(): 
 
@@ -154,41 +262,96 @@ def reset_all():
 
 
 # Data representation functions -------------------------------------------------------------------------------------
+    
+# def get_unique_colors(colored_mask):
+#     '''
+#     Gets list of unique colors in correct order corresponding to the class colors.
+#     '''
+    
+#     colors = np.array([[0,0,0], [230, 25, 75], [60, 180, 75], [255, 225, 25], [0, 130, 200], [245, 130, 48],
+#                        [145, 30, 180], [70, 240, 240], [240, 50, 230], [210, 245, 60], [170, 255, 195]])
+    
+#     unique_colors = np.unique(colored_mask.reshape(-1, colored_mask.shape[-1]), axis=0)
+#     idx_fixed = np.nonzero(np.all(colors[:, None] == unique_colors, axis=2))[1]
+#     unique_colors = unique_colors[idx_fixed]
+    
+#     return unique_colors
+
+
+# def colored_to_categorical(colored_mask, include_background=True):
+#     h, w, c = colored_mask.shape
+#     unique_colors = get_unique_colors(colored_mask)  # (num_colors, 3)
+#     num_colors = len(unique_colors)
+
+#     # Convert colors to single integers for fast comparison
+#     factor = np.array([256*256, 256, 1], dtype=np.int32)
+#     flat_mask = colored_mask.reshape(-1, 3).dot(factor)  # shape (H*W,)
+#     flat_colors = unique_colors.dot(factor)              # shape (num_colors,)
+
+#     # Compare all pixels to all colors efficiently
+#     mask = (flat_mask[:, None] == flat_colors[None, :]).astype(np.uint8) * 255  # (H*W, num_colors)
+#     mask = mask.reshape(h, w, num_colors)
+
+#     # Compute weight for background/unlabeled pixels
+#     weight = 255 - mask[:, :, 0]
+
+#     # Remove background channel
+#     mask = mask[:, :, 1:]
+
+#     return mask, weight
+
+COLORS = np.array([[0, 0, 0], [230, 25, 75], [60, 180, 75], [255, 225, 25],
+                   [0, 130, 200], [245, 130, 48], [145, 30, 180], [70, 240, 240],
+                   [240, 50, 230], [210, 245, 60], [170, 255, 195]], dtype=np.uint8)
 
 def get_unique_colors(colored_mask):
     '''
     Gets list of unique colors in correct order corresponding to the class colors.
     '''
-    
-    colors = np.array([[0,0,0], [230, 25, 75], [60, 180, 75], [255, 225, 25], [0, 130, 200], [245, 130, 48],
-                       [145, 30, 180], [70, 240, 240], [240, 50, 230], [210, 245, 60], [170, 255, 195]])
-    
-    unique_colors = np.unique(colored_mask.reshape(-1, colored_mask.shape[-1]), axis=0)
-    idx_fixed = np.nonzero(np.all(colors[:, None] == unique_colors, axis=2))[1]
-    unique_colors = unique_colors[idx_fixed]
-    
-    return unique_colors
+
+    # Flatten mask into Nx3
+    flat = colored_mask.reshape(-1, 3)
+
+    # Convert to a 1D integer key (avoid np.unique(axis=0))
+    flat_keys = flat[:, 0].astype(np.uint32) << 16 | flat[:, 1].astype(np.uint32) << 8 | flat[:, 2]
+    color_keys = COLORS[:, 0].astype(np.uint32) << 16 | COLORS[:, 1].astype(np.uint32) << 8 | COLORS[:, 2]
+
+    # Mark which predefined colors exist in the mask
+    present = np.isin(color_keys, flat_keys)
+
+    return COLORS[present]
+
+@njit(parallel=True)
+def _colored_to_categorical_ultrafast(flat_mask, flat_colors, h, w, num_colors):
+    mask = np.zeros((h, w, num_colors), dtype=np.uint8)
+    for i in prange(h):
+        for j in range(w):
+            pixel = flat_mask[i*w + j]
+            for k in range(num_colors):
+                if pixel == flat_colors[k]:
+                    mask[i, j, k] = 255
+                    break  # stop at first match
+    weight = 255 - mask[:, :, 0]
+    return mask[:, :, 1:], weight
 
 def colored_to_categorical(colored_mask, include_background=True):
-
+    h, w, c = colored_mask.shape
     unique_colors = get_unique_colors(colored_mask)
-    
-    mask = np.stack([np.all(colored_mask == color, axis=-1).astype(np.uint8) for color in unique_colors], axis=-1) * 255
+    num_colors = len(unique_colors)
 
-    # Check if contains unlabeled pixels
-    weight = 255 - mask[:,:,0]
-    mask = mask[:,:,1:]
-    
-    return mask, weight
+    # Convert colors to single integers
+    factor = np.array([256*256, 256, 1], dtype=np.int32)
+    flat_mask = colored_mask.reshape(-1, 3).dot(factor).astype(np.int32)
+    flat_colors = unique_colors.dot(factor).astype(np.int32)
+
+    # Call fully compiled Numba function with parallelism
+    return _colored_to_categorical_ultrafast(flat_mask, flat_colors, h, w, num_colors)
 
 def categorical_to_colored(mask):
 
-    colors = np.array([[230, 25, 75], [60, 180, 75], [255, 225, 25], [0, 130, 200], [245, 130, 48],
-                    [145, 30, 180], [70, 240, 240], [240, 50, 230], [210, 245, 60], [170, 255, 195]])
-
     colored_mask = np.zeros((mask.shape[0],mask.shape[1],3), dtype='uint8')
     for i in range(mask.shape[-1]):
-        colored_mask[mask[:,:,i] == 255,:] = colors[i]
+        colored_mask[mask[:,:,i] == 255,:] = COLORS[i+1]
     
     return colored_mask
 

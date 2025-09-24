@@ -1,5 +1,6 @@
 import os
 import glob
+import zarr
 import numpy as np
 from skimage import io
 
@@ -14,9 +15,11 @@ class VolumeData(object):
 
     def __init__(self, file, annotations=False):
 
-        self.filename = file.split('/')[-1].split('.npy')[0]
+        # self.filename = file.split('/')[-1].split('.npy')[0]
+        self.filename = file.split('/')[-1].split('.zarr')[0]
 
-        self.image_volume = np.load(f'data/image_volumes/{self.filename}.npy')
+        # self.image_volume = np.load(f'data/image_volumes/{self.filename}.npy')
+        self.image_volume = zarr.open(f'data/image_volumes/{self.filename}.zarr', mode='r')['0']
 
         self.slicer = Slicer(self.image_volume.shape)
         

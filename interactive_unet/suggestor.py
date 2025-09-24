@@ -7,6 +7,8 @@ from torchvision import tv_tensors
 from torchvision.transforms import v2
 from torchvision.transforms import InterpolationMode
 
+import segmentation_models_pytorch as smp
+
 from interactive_unet import utils, metrics
 
 class Suggestor(nn.Module):
@@ -14,21 +16,20 @@ class Suggestor(nn.Module):
     def __init__(self, num_channels, num_classes):
         super().__init__()
 
-
-        import segmentation_models_pytorch as smp
-
         self.num_channels = num_channels
         self.num_classes = num_classes
 
-        self.unet = smp.Unet(encoder_name='mobilenet_v2',
+        self.unet = smp.Unet(#encoder_name='tu-mobilenetv4_conv_small',
+                             encoder_name='mobilenet_v2',
                              encoder_weights='imagenet',
                              in_channels=self.num_channels,
-                             classes=self.num_classes)
+                             classes=self.num_classes,)
+                            #  decoder_interpolation='bicubic',
                             #  encoder_depth=2,
-                            #  decoder_channels=(32, 16))
+                            #  decoder_channels=(64, 32))
 
         self.model = nn.Sequential(self.unet,
-                                   nn.Softmax(dim=1)) 
+                                   nn.Softmax(dim=1))
 
             
     def forward(self, x):
@@ -39,7 +40,7 @@ class Suggestor(nn.Module):
 
         return pred
 
-def make_suggestions(image_features, mask, lr=0.0005, steps=30, model=None):
+def make_suggestions(image_features, mask, lr=0.0001, steps=30, model=None):
 
     torch.set_float32_matmul_precision('medium')
 
@@ -63,9 +64,9 @@ def make_suggestions(image_features, mask, lr=0.0005, steps=30, model=None):
         w = torch.tensor(np.repeat((mask > 0)[None,None,...], num_classes, 1)).to(torch.float32).cuda()
 
         if model is None:
-            model = Suggestor(x.shape[1], num_classes).cuda()
+            model = Suggestor(x.shape[1], num_classes).train().cuda()
         elif model.num_classes != num_classes:
-            model = Suggestor(x.shape[1], num_classes).cuda()
+            model = Suggestor(x.shape[1], num_classes).train().cuda()
 
         best_model = model.state_dict()
         best_loss = 100
@@ -88,13 +89,14 @@ def make_suggestions(image_features, mask, lr=0.0005, steps=30, model=None):
             y_pred = model(xt)
             loss = metrics.mcc_ce_loss(y_pred, yt, wt)
 
-            if loss.isnan().any():
+            if torch.isnan(loss):
                 model = Suggestor(x.shape[1], num_classes).cuda()
                 best_model = model.state_dict()
                 best_loss = 100
 
-            if loss < best_loss:
-                best_loss = loss
+            loss_val = loss.item()
+            if loss_val < best_loss:
+                best_loss = loss_val
                 best_model = model.state_dict()
             
             optimizer.zero_grad()
@@ -103,8 +105,9 @@ def make_suggestions(image_features, mask, lr=0.0005, steps=30, model=None):
 
         model.load_state_dict(best_model)
         model.eval()
-
-        predictions = model(x).detach().cpu().numpy()
+        
+        with torch.inference_mode():
+            predictions = model(x).detach().cpu().numpy()
         predictions = np.argmax(predictions[0],0).reshape((image_size,image_size))
         
         suggestions = np.zeros((image_size,image_size,3)).astype('uint8')

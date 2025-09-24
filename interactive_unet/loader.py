@@ -111,14 +111,24 @@ class UNetDataset(Dataset):
 
         self.augment = augment
 
+        # self.transforms = v2.Compose([v2.RandomHorizontalFlip(p=0.5),
+        #                               v2.RandomVerticalFlip(p=0.5),
+        #                               v2.RandomRotation(degrees=(-360,360), interpolation=InterpolationMode.NEAREST),
+        #                             #   v2.RandomResizedCrop(size=(512,512), scale=(0.3,1), interpolation=InterpolationMode.NEAREST),
+        #                               v2.ElasticTransform(interpolation=InterpolationMode.NEAREST),
+        #                               v2.ColorJitter(brightness=(0.75, 1.25), contrast=(0.5, 2.0)),
+        #                               v2.RandomChoice([v2.GaussianBlur(kernel_size=5),
+        #                                                v2.GaussianNoise()], [0.5,0.5]),
+        #                               ])
+
         self.transforms = v2.Compose([v2.RandomHorizontalFlip(p=0.5),
                                       v2.RandomVerticalFlip(p=0.5),
                                       v2.RandomRotation(degrees=(-360,360), interpolation=InterpolationMode.NEAREST),
-                                    #   v2.RandomResizedCrop(size=(512,512), scale=(0.3,1), interpolation=InterpolationMode.NEAREST),
-                                      v2.ElasticTransform(interpolation=InterpolationMode.NEAREST),
-                                      v2.ColorJitter(brightness=(0.75, 1.25), contrast=(0.5, 2.0)),
-                                      v2.RandomChoice([v2.GaussianBlur(kernel_size=5),
-                                                       v2.GaussianNoise()], [0.5,0.5]),
+                                      v2.RandomResizedCrop(size=(512,512), scale=(0.3,1), interpolation=InterpolationMode.NEAREST),
+                                    #   v2.ElasticTransform(interpolation=InterpolationMode.NEAREST),
+                                    #   v2.ColorJitter(brightness=(0.75, 1.25), contrast=(0.5, 2.0)),
+                                    #   v2.RandomChoice([v2.GaussianBlur(kernel_size=5),
+                                    #                    v2.GaussianNoise()], [0.5,0.5]),
                                       ])
 
     def __len__(self):
