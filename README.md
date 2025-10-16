@@ -60,4 +60,7 @@ Using the paint tool annotate at least one image and then train a model. Repeat 
 5. Launch the tool:
 `interactive-unet`
 
+6. If `interactive-unet` doesn't produce a working NiceGUI interface, an alternative is to just clone the repo and run
+`python interactive_unet/app.py`
+
 Currently, you can only access the tool from the browser within the the ThinLinc Client. External usage is not working yet.
