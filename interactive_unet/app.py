@@ -20,9 +20,12 @@ from interactive_unet.slicer import Slicer
 from interactive_unet.annotator import Annotator
 from interactive_unet import utils, trainer, predict, suggestor
 
-def run_app():
+def run_app(reload=False):
     app = InteractiveSegmentationTool()
-    ui.run(port=9090, show=False, reload=False)
+    ui.run(port=9090, show=False, reload=reload)
+
+if __name__ in {"__main__", "__mp_main__"}:
+    run_app(True)
 
 class InteractiveSegmentationTool:
 
