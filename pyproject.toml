@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "interactive-unet"
+version = "0.1.0"
+description = "An interactive segmentation tool for 3D volumetric data."
+license = { text = "BSD-2-Clause" }
+requires-python = ">=3.8"
+
+dependencies = [
+  "nicegui",
+  "torch",
+  "torchvision",
+  "scikit-image",
+  "opencv-python",
+  "lightning",
+  "segmentation-models-pytorch",
+  "scipy",
+  "plotly",
+  "pandas",
+  "zarr",
+  "numba",
+  "joblib",
+  "tqdm"
+]
+
+[project.scripts]
+interactive-unet = "interactive_unet.app:run_app"
+
+[tool.setuptools]
+packages = ["interactive_unet"]
