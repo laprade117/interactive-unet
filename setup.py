@@ -8,7 +8,7 @@ setup(
     # packages=['interactive_unet'],
     packages=find_packages(),
     entry_points = {
-        'console_scripts': ['interactive-unet=interactive_unet:app'],
+        'console_scripts': ['interactive-unet=interactive_unet:app.main'],
     },
     install_requires=['nicegui',
                       'torch',

@@ -783,7 +783,11 @@ class InteractiveSegmentationTool:
             self.dataset = utils.load_dataset()
             self.randomize()
 
-if __name__ in {"__main__", "__mp_main__"}:
+
+def main():
     port = 9090
     app = InteractiveSegmentationTool()
     ui.run(port=port, show=False)
+
+if __name__ in {"__main__", "__mp_main__"}:
+    main()
