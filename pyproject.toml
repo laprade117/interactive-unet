@@ -31,6 +31,3 @@ interactive-unet = "interactive_unet.app:run_app"
 
 [tool.setuptools.packages.find]
 include = ["interactive_unet*"]
-
-[tool.setuptools]
-packages = ["interactive_unet"]
