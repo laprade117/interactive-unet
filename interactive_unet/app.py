@@ -11,7 +11,7 @@ from skimage import io
 
 import plotly.graph_objects as go
 
-from nicegui import ui, events, run
+from nicegui import events, run
 from nicegui.events import KeyEventArguments
 
 import segmentation_models_pytorch as smp
@@ -21,6 +21,7 @@ from interactive_unet.annotator import Annotator
 from interactive_unet import utils, trainer, predict, suggestor
 
 def run_app(reload=False):
+    from nicegui import ui
     app = InteractiveSegmentationTool()
     ui.run(port=9090, show=False, reload=reload)
 
