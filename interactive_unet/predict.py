@@ -15,8 +15,6 @@ from . import utils, unet
 
 def predict_slice(image_slice, num_channels=1, num_classes=2, return_probabilities=False):
 
-    torch.set_float32_matmul_precision('medium')
-    
     # Get CUDA device if available
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
