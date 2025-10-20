@@ -2,12 +2,14 @@ import os
 import glob
 import zarr
 import time
+import copy
 import shutil
 import numpy as np
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
 import torch
+import torch.multiprocessing as mp
 
 from interactive_unet import utils, unet
 
@@ -44,10 +46,42 @@ def predict_slice(image_slice, num_channels=1, num_classes=2, return_probabiliti
         return y_prob
     else:
         return y_pred
-
-def predict_block(model, block, num_classes=2, batch_size=4, axes=[0,1,2]):
+        
+def find_max_batch_size(model, input_size=256, start=4, max_limit=512):
     
+    batch_size = start
+    best = start
+
+    device = model.device
+    
+    while batch_size <= max_limit:
+        try:
+            with torch.inference_mode():
+                # Make a fake batch to test memory use
+                test_batch = torch.zeros((batch_size, 1, input_size, input_size), dtype=torch.float32, device=device)
+                _ = model(test_batch)
+            
+            best = batch_size
+            batch_size *= 2  # Try next larger
+            torch.cuda.empty_cache()
+        
+        except RuntimeError as e:
+            if "out of memory" in str(e):
+                torch.cuda.empty_cache()
+                break  # Too big, stop searching
+            else:
+                raise e  # Unexpected error
+
+    del test_batch, model
+    torch.cuda.empty_cache()
+
+    return best
+
+def predict_block(model, block, num_classes=2, batch_size=8, axes=[0,1,2]):
+
     input_size = block.shape[0]
+    
+    device = model.device
     
     block_prediction = np.zeros((input_size, input_size, input_size, num_classes), dtype=np.float32)
         
@@ -61,7 +95,7 @@ def predict_block(model, block, num_classes=2, batch_size=4, axes=[0,1,2]):
                 
                 batch = block[i:i+batch_size].unsqueeze(1)
                 
-                batch_prediction = model(batch)
+                batch_prediction = model(batch.to(device))
                 batch_prediction = batch_prediction.permute(0, 2, 3, 1).cpu().numpy()
 
                 # Accumulate predictions into correct orientation depending on axis
@@ -95,10 +129,22 @@ def predict_volumes(input_size=256, num_channels=1, num_classes=2, overlap=0.25,
     
     # Load model
     if os.path.isfile('model/model.ckpt'):
-        model = unet.UNet.load_from_checkpoint(checkpoint_path='model/model.ckpt').to(device)
+        model = unet.UNet.load_from_checkpoint(checkpoint_path='model/model.ckpt')
     else:
-        model = unet.UNet(num_channels=num_channels, num_classes=num_classes).to(device)
+        model = unet.UNet(num_channels=num_channels, num_classes=num_classes)
     model.eval()
+
+    # # Get number of GPU's available
+    # num_gpus = torch.cuda.device_count()
+
+    # # Assign a copy of the model to each GPU
+    # models = []
+    # for gpu_id in range(num_gpus):
+    #     m = copy.deepcopy(model)         
+    #     m = m.to(f'cuda:{gpu_id}')
+    #     m.eval()
+    #     models.append(m)
+    # del model
     
     # Get list of volume files to predict
     volume_files = np.sort(glob.glob('data/image_volumes/*.zarr'))
@@ -106,6 +152,9 @@ def predict_volumes(input_size=256, num_channels=1, num_classes=2, overlap=0.25,
     # Precompute blending window for block size
     window = gaussian_3d(input_size, sigma=0.125)
     # window = hanning_3d(input_size)
+
+    batch_size = find_max_batch_size(model, input_size=input_size, start=4, max_limit=input_size)
+    print(f'Found optimal inference batch size of {batch_size}.')
 
     # Predict volumes
     for f in volume_files:
@@ -125,28 +174,64 @@ def predict_volumes(input_size=256, num_channels=1, num_classes=2, overlap=0.25,
                                               shards=(shard_size, shard_size, shard_size, num_classes),
                                               dtype='uint8',
                                               overwrite=True)
+        
+        # Initialize temporary prediction volume
+        pred_root = zarr.open('temp/pred.zarr', mode='w')
+        pred = pred_root.create_array(name='0',
+                                      shape=output_volume_shape.astype(int).tolist(),
+                                      chunks=(chunk_size, chunk_size, chunk_size, num_classes),
+                                      shards=(shard_size, shard_size, shard_size, num_classes),
+                                      dtype='float32',
+                                      overwrite=True)
 
+        
+        # Initialize temporary weight volume
+        weight_root = zarr.open('temp/weight.zarr', mode='w')
+        weight = weight_root.create_array(name='0',
+                                          shape=input_volume_shape.astype(int).tolist(),
+                                          chunks=(chunk_size, chunk_size, chunk_size),
+                                          shards=(shard_size, shard_size, shard_size),
+                                          dtype='float32',
+                                          overwrite=True)
         # Get block coordinates
         block_coords, padded_block_coords, local_block_coords = get_block_coordinates(input_volume_shape, input_size=input_size, overlap=overlap)
         num_blocks = len(padded_block_coords)
-        
-        # Initialize temporary zarr volumes
-        pred = zarr.open(f'temp/pred.zarr',
-                         mode='w',
-                         shape=output_volume_shape.astype(int).tolist(),
-                         dtype='float32',
-                         chunks=(chunk_size, chunk_size, chunk_size, num_classes))
-        weight = zarr.open(f'temp/weight.zarr',
-                           mode='w',
-                           shape=input_volume_shape.astype(int).tolist(),
-                           dtype='float32',
-                           chunks=(chunk_size, chunk_size, chunk_size))
+
+        # print(f'\nSegmenting {f.split('/')[-1]}...')
+        # pbar = tqdm(total=num_blocks)
+        # for i in range(0, num_blocks, num_gpus):
+
+        #     # Build tasks for a parallelization
+        #     tasks = []
+        #     for j in range(num_gpus):
+        #         if i + j < num_blocks:
+        #             idx = i + j
+        #             gpu_id = j
+        #             padded_block = torch.tensor(get_padded_block(volume, *padded_block_coords[idx]).astype('float32') / 255.0)
+        #             tasks.append((models[gpu_id], padded_block, num_classes, batch_size, axes, gpu_id))
+
+        #     # Begin tasks, 1 block per GPU
+        #     with mp.Pool(processes=len(tasks)) as pool:
+        #         predicted_blocks = pool.starmap(predict_block, tasks)
+
+        #     # Write predictions into Zarr files
+        #     for j in range(len(predicted_blocks)):
+        #         if i + j < num_blocks:
+        #             idx = i + j
+
+        #             i0, j0, k0, i1, j1, k1 = block_coords[idx]
+        #             l_i0, l_j0, l_k0, l_i1, l_j1, l_k1 = local_block_coords[idx]
+                    
+        #             pred[i0:i1, j0:j1, k0:k1] += predicted_blocks[j][l_i0:l_i1, l_j0:l_j1, l_k0:l_k1, :] * window[l_i0:l_i1, l_j0:l_j1, l_k0:l_k1, None]
+        #             weight[i0:i1, j0:j1, k0:k1] += window[l_i0:l_i1, l_j0:l_j1, l_k0:l_k1]
+
+        #     pbar.update(len(predicted_blocks))
 
         print(f'\nSegmenting {f.split('/')[-1]}...')
         for i in tqdm(range(num_blocks)):
 
-            padded_block = torch.tensor(get_padded_block(volume, *padded_block_coords[i]).astype('float32') / 255.0).cuda()
-            
+            padded_block = torch.tensor(get_padded_block(volume, *padded_block_coords[i]).astype('float32') / 255.0)
+        
             predicted_block = predict_block(model, padded_block, num_classes=num_classes, batch_size=batch_size, axes=axes)
 
             i0, j0, k0, i1, j1, k1 = block_coords[i]
@@ -154,7 +239,7 @@ def predict_volumes(input_size=256, num_channels=1, num_classes=2, overlap=0.25,
             
             pred[i0:i1, j0:j1, k0:k1] += predicted_block[l_i0:l_i1, l_j0:l_j1, l_k0:l_k1, :] * window[l_i0:l_i1, l_j0:l_j1, l_k0:l_k1, None]
             weight[i0:i1, j0:j1, k0:k1] += window[l_i0:l_i1, l_j0:l_j1, l_k0:l_k1]
-            
+
         del volume
         
         print('Postprocessing and generating multiscale pyramid...')
