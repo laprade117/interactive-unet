@@ -783,10 +783,17 @@ class InteractiveSegmentationTool:
             self.dataset = utils.load_dataset()
             self.randomize()
 
-def run_app():
-    port = 9090
+def create_app():
+    """Prepare the NiceGUI app without running it."""
     app = InteractiveSegmentationTool()
-    ui.run(port=port, show=False)
+    return app
+
+
+def run_app():
+    """Entry point for console script."""
+    create_app()
+    ui.run(port=9090, show=False)
+
 
 if __name__ in {"__main__", "__mp_main__"}:
     run_app()
