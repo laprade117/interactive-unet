@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 import torch
 import torch.multiprocessing as mp
 
-from interactive_unet import utils, unet
+from . import utils, unet
 
 def predict_slice(image_slice, num_channels=1, num_classes=2, return_probabilities=False):
 

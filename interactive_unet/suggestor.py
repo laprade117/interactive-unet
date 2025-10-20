@@ -9,7 +9,7 @@ from torchvision.transforms import InterpolationMode
 
 import segmentation_models_pytorch as smp
 
-from interactive_unet import utils, metrics
+from . import utils, metrics
 
 class Suggestor(nn.Module):
 

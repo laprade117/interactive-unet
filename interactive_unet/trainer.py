@@ -7,7 +7,7 @@ import lightning as L
 from lightning.pytorch.loggers import CSVLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 
-from interactive_unet import utils, loader, unet
+from . import utils, loader, unet
 		            
 def train_model(lr=0.0001, batch_size=1, epochs=10,
                  num_channels=1, num_classes=2,

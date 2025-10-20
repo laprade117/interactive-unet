@@ -12,7 +12,7 @@ from scipy import ndimage
 from numba import njit, prange
 from skimage.io import imsave, imread
 
-from interactive_unet import metrics, volumedata
+from . import metrics, volumedata
 
 def read_volume(path, level=0):
 

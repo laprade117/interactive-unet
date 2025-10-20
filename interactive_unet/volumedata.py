@@ -4,8 +4,8 @@ import zarr
 import numpy as np
 from skimage import io
 
-from interactive_unet import utils
-from interactive_unet.slicer import Slicer
+from . import utils
+from .slicer import Slicer
 
 """
 A VolumeData object stores the image volume and an associated slicer object. Can also hold annotation information.

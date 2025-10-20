@@ -16,9 +16,9 @@ from nicegui.events import KeyEventArguments
 
 import segmentation_models_pytorch as smp
 
-from interactive_unet.slicer import Slicer
-from interactive_unet.annotator import Annotator
-from interactive_unet import utils, trainer, predict, suggestor
+from .slicer import Slicer
+from .annotator import Annotator
+from . import utils, trainer, predict, suggestor
 
 def run_app(reload=False):
     app = InteractiveSegmentationTool()

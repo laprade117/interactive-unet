@@ -5,7 +5,7 @@ import lightning as L
 
 import segmentation_models_pytorch as smp
 
-from interactive_unet import metrics
+from . import metrics
 
 class UNet(L.LightningModule):
     """

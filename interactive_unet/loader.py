@@ -9,7 +9,7 @@ from torchvision.transforms import v2
 from torchvision.transforms import InterpolationMode
 from torch.utils.data import Dataset, DataLoader
 
-from interactive_unet import utils
+from . import utils
 
 def load_annotations(set_type='train'): 
 
