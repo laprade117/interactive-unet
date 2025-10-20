@@ -788,5 +788,5 @@ def run_app():
     app = InteractiveSegmentationTool()
     ui.run(port=port, show=False)
 
-# if __name__ in {"__main__", "__mp_main__"}:
-#     run_app()
+if __name__ in {"__main__", "__mp_main__"}:
+    run_app()
