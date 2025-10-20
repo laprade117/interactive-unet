@@ -10,7 +10,7 @@ license = { text = "BSD-2-Clause" }
 requires-python = ">=3.8"
 
 dependencies = [
-  "nicegui",
+  "nicegui==2.24.2",
   "torch",
   "torchvision",
   "scikit-image",
