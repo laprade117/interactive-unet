@@ -789,4 +789,4 @@ class InteractiveSegmentationTool:
             self.randomize()
 
 app = InteractiveSegmentationTool()
-ui.run(port=np.random.randint(20000,40000), show=False, reload=reload)
+ui.run(port=np.random.randint(20000,40000), show=False, reload=False)
