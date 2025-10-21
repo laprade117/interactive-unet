@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [project.scripts]
-interactive-unet = "interactive_unet.app"
+interactive-unet = "interactive_unet:app"
 
 [tool.setuptools.packages.find]
 include = ["interactive_unet*"]
