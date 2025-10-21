@@ -22,7 +22,7 @@ from . import utils, trainer, predict, suggestor
 
 def run_app(reload=False):
     app = InteractiveSegmentationTool()
-    ui.run(port=9090, show=False, reload=reload)
+    ui.run(port=np.random.randint(20000,40000), show=False, reload=reload)
 
 if __name__ in {"__main__", "__mp_main__"}:
     run_app(True)
