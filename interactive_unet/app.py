@@ -20,12 +20,10 @@ from .slicer import Slicer
 from .annotator import Annotator
 from . import utils, trainer, predict, suggestor
 
-def run_app(reload=False):
-    app = InteractiveSegmentationTool()
-    ui.run(port=np.random.randint(20000,40000), show=False, reload=reload)
+# def run_app(reload=False):
 
-if __name__ in {"__main__", "__mp_main__"}:
-    run_app(True)
+# if __name__ in {"__main__", "__mp_main__"}:
+#     run_app(True)
 
 class InteractiveSegmentationTool:
 
@@ -789,3 +787,6 @@ class InteractiveSegmentationTool:
         if len(self.dataset) != len(volume_files):
             self.dataset = utils.load_dataset()
             self.randomize()
+
+app = InteractiveSegmentationTool()
+ui.run(port=np.random.randint(20000,40000), show=False, reload=reload)
