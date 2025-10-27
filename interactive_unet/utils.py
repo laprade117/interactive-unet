@@ -198,14 +198,14 @@ def save_sample(image_slice, mask_slice, slice_data, num_classes=None):
     val_weight_slice = np.round(val_weight_slice).astype('uint8')
 
     # Save training sample
-    n_samples = len(glob.glob(Path("data/train/images/*.tiff")))
+    n_samples = len(glob.glob(str(Path("data/train/images/*.tiff"))))
     imsave(Path(f'data/train/images/{n_samples:04d}.tiff'), image_slice)
     imsave(Path(f'data/train/masks/{n_samples:04d}.tiff'), mask_slice)
     imsave(Path(f'data/train/weights/{n_samples:04d}.tiff'), train_weight_slice)
     np.save(Path(f'data/train/slices/{n_samples:04d}.npy'), slice_data)
 
     # Save validation sample
-    n_samples = len(glob.glob(Path("data/val/images/*.tiff")))
+    n_samples = len(glob.glob(str(Path("data/val/images/*.tiff"))))
     imsave(Path(f'data/val/images/{n_samples:04d}.tiff'), image_slice)
     imsave(Path(f'data/val/masks/{n_samples:04d}.tiff'), mask_slice)
     imsave(Path(f'data/val/weights/{n_samples:04d}.tiff'), val_weight_slice)
@@ -233,7 +233,7 @@ def create_directories():
     Path("model").mkdir(parents=True, exist_ok=True)
 
     # Download sample data if no volumes exist
-    if len(glob.glob(Path('data/image_volumes/*'))) == 0:
+    if len(glob.glob(str(Path('data/image_volumes/*')))) == 0:
         download_example_data()
 
 def clear_annotations(): 
@@ -382,7 +382,7 @@ def class_to_categorical(class_mask, num_classes, weight=None):
 
 def get_training_history(metric='Loss'):
     
-    log_files = np.sort(glob.glob(Path('model/history/*/version_0/metrics.csv')))
+    log_files = np.sort(glob.glob(str(Path('model/history/*/version_0/metrics.csv'))))
     
     epochs = []
     train = []
