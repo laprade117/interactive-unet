@@ -28,7 +28,7 @@ def train_model(lr=0.0001, batch_size=1, epochs=10,
     loss_function = utils.loss_name_to_function(loss_function_name)
 
     # If model exists - continue training
-	model_path = os.path.join('model', 'model.ckpt')
+    model_path = os.path.join('model', 'model.ckpt')
     if os.path.isfile(model_path):
         model = unet.UNet.load_from_checkpoint(checkpoint_path=model_path)
         model.lr = lr
