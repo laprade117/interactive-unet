@@ -104,15 +104,15 @@ def download_example_data():
     Path("temp").mkdir(parents=True, exist_ok=True)
 
     url = 'https://filestash.qim.dk/api/files/cat?path=%2Fsample_data.npy&share=57lVz63'
-    urllib.request.urlretrieve(url, 'temp/sample_volume.npy')
+    urllib.request.urlretrieve(url, os.path.join('temp', 'sample_volume.npy'))
 
     end_time = time.time()
     print(f'Download completed in {end_time - start_time:.02f} seconds. \n')
 
     print('Creating multiscale zarr...')
-    volume = np.load('temp/sample_volume.npy')
+    volume = np.load(os.path.join('temp', 'sample_volume.npy'))
     
-    create_multiscale_zarr(volume, 'data/image_volumes/sample_volume.zarr')
+    create_multiscale_zarr(volume, os.path.join('data', 'image_volumes', 'sample_volume.zarr'))
 
     shutil.rmtree('temp')   
     print('Done!')
@@ -130,7 +130,7 @@ def download_example_data():
 
 def load_dataset(annotations=False):
 
-    image_volume_files = np.sort(glob.glob('data/image_volumes/*.zarr'))
+    image_volume_files = np.sort(glob.glob(os.path.join('data', 'image_volumes', '*.zarr')))
 
     dataset = []
     if len(image_volume_files) > 0:
@@ -148,7 +148,7 @@ def get_input_size():
 
     input_size = 512
 
-    train_masks = glob.glob('data/train/masks/*.tiff')  
+    train_masks = glob.glob(os.path.join('data', 'train', 'masks', '*.tiff'))  
 
     if len(train_masks) > 0:
         mask = imread(train_masks[0])
@@ -160,7 +160,7 @@ def get_num_classes():
 
     num_classes = 2
 
-    train_masks = glob.glob('data/train/masks/*.tiff')
+    train_masks = glob.glob(os.path.join('data', 'train', 'masks', '*.tiff'))
 
     if len(train_masks) > 0:
         mask = imread(train_masks[0])
@@ -198,18 +198,18 @@ def save_sample(image_slice, mask_slice, slice_data, num_classes=None):
     val_weight_slice = np.round(val_weight_slice).astype('uint8')
 
     # Save training sample
-    n_samples = len(glob.glob("data/train/images/*.tiff"))
-    imsave(f'data/train/images/{n_samples:04d}.tiff', image_slice)
-    imsave(f'data/train/masks/{n_samples:04d}.tiff', mask_slice)
-    imsave(f'data/train/weights/{n_samples:04d}.tiff', train_weight_slice)
-    np.save(f'data/train/slices/{n_samples:04d}.npy', slice_data)
+    n_samples = len(glob.glob(Path("data/train/images/*.tiff")))
+    imsave(Path(f'data/train/images/{n_samples:04d}.tiff'), image_slice)
+    imsave(Path(f'data/train/masks/{n_samples:04d}.tiff'), mask_slice)
+    imsave(Path(f'data/train/weights/{n_samples:04d}.tiff'), train_weight_slice)
+    np.save(Path(f'data/train/slices/{n_samples:04d}.npy'), slice_data)
 
     # Save validation sample
-    n_samples = len(glob.glob("data/val/images/*.tiff"))
-    imsave(f'data/val/images/{n_samples:04d}.tiff', image_slice)
-    imsave(f'data/val/masks/{n_samples:04d}.tiff', mask_slice)
-    imsave(f'data/val/weights/{n_samples:04d}.tiff', val_weight_slice)
-    np.save(f'data/val/slices/{n_samples:04d}.npy', slice_data)
+    n_samples = len(glob.glob(Path(("data/val/images/*.tiff")))
+    imsave(Path(f'data/val/images/{n_samples:04d}.tiff'), image_slice)
+    imsave(Path(f'data/val/masks/{n_samples:04d}.tiff'), mask_slice)
+    imsave(Path(f'data/val/weights/{n_samples:04d}.tiff'), val_weight_slice)
+    np.save(Path(f'data/val/slices/{n_samples:04d}.npy'), slice_data)
 
 # Folder and data functions -------------------------------------------------------------------------------------
 
@@ -233,16 +233,16 @@ def create_directories():
     Path("model").mkdir(parents=True, exist_ok=True)
 
     # Download sample data if no volumes exist
-    if len(glob.glob('data/image_volumes/*')) == 0:
+    if len(glob.glob(Path('data/image_volumes/*'))) == 0:
         download_example_data()
 
 def clear_annotations(): 
 
-    shutil.rmtree('./data/mask_volumes')     
-    shutil.rmtree('./data/weight_volumes')
-    shutil.rmtree('./data/predicted_volumes')
-    shutil.rmtree('./data/train')
-    shutil.rmtree('./data/val')
+    shutil.rmtree(Path('./data/mask_volumes'))
+    shutil.rmtree(Path('./data/weight_volumes'))
+    shutil.rmtree(Path('./data/predicted_volumes'))
+    shutil.rmtree(Path('./data/train'))
+    shutil.rmtree(Path('./data/val'))
     create_directories()
 
 def clear_model(): 
@@ -252,12 +252,12 @@ def clear_model():
 
 def reset_all():
 
-    shutil.rmtree('./data/mask_volumes')     
-    shutil.rmtree('./data/weight_volumes')
-    shutil.rmtree('./data/predicted_volumes')
-    shutil.rmtree('./data/train')
-    shutil.rmtree('./data/val')
-    shutil.rmtree('./model')  
+    shutil.rmtree(Path('./data/mask_volumes'))     
+    shutil.rmtree(Path('./data/weight_volumes'))
+    shutil.rmtree(Path('./data/predicted_volumes'))
+    shutil.rmtree(Path('./data/train'))
+    shutil.rmtree(Path('./data/val'))
+    shutil.rmtree(Path('./model'))
     create_directories()
 
 
@@ -382,7 +382,7 @@ def class_to_categorical(class_mask, num_classes, weight=None):
 
 def get_training_history(metric='Loss'):
     
-    log_files = np.sort(glob.glob('model/history/*/version_0/metrics.csv'))
+    log_files = np.sort(glob.glob(Path('model/history/*/version_0/metrics.csv')))
     
     epochs = []
     train = []
