@@ -1,3 +1,4 @@
+import os
 import glob
 import numpy as np
 from skimage import io
