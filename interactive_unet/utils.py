@@ -205,7 +205,7 @@ def save_sample(image_slice, mask_slice, slice_data, num_classes=None):
     np.save(Path(f'data/train/slices/{n_samples:04d}.npy'), slice_data)
 
     # Save validation sample
-    n_samples = len(glob.glob(Path(("data/val/images/*.tiff")))
+    n_samples = len(glob.glob(Path("data/val/images/*.tiff")))
     imsave(Path(f'data/val/images/{n_samples:04d}.tiff'), image_slice)
     imsave(Path(f'data/val/masks/{n_samples:04d}.tiff'), mask_slice)
     imsave(Path(f'data/val/weights/{n_samples:04d}.tiff'), val_weight_slice)
