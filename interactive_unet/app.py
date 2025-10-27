@@ -37,7 +37,7 @@ class InteractiveSegmentationTool:
         if len(self.dataset) > 0:
             self.volume_index = np.random.randint(len(self.dataset))
 
-        self.train_samples = glob.glob('data/train/images/*.tiff')
+        self.train_samples = glob.glob(os.path.join('data', 'train', 'images', '*.tiff'))
 
         # Data parameters
         self.num_classes = utils.get_num_classes()
@@ -437,7 +437,7 @@ class InteractiveSegmentationTool:
                                 'slicer' : self.dataset[self.volume_index].slicer.to_dict()}
                     utils.save_sample(self.image_slice, mask_slice, slice_data, self.num_classes)
 
-                    self.train_samples = glob.glob('data/train/images/*.tiff')
+                    self.train_samples = glob.glob(os.path.join('data', 'train', 'images', '*.tiff'))
 
                     self.ui_select_input_size.disable()
                     self.ui_select_num_classes.disable()
@@ -654,7 +654,7 @@ class InteractiveSegmentationTool:
         if result == 'Yes':
             utils.clear_annotations()
 
-        self.train_samples = glob.glob('data/train/images/*.tiff')
+        self.train_samples = glob.glob(os.path.join('data', 'train', 'images', '*.tiff'))
         self.ui_select_input_size.enable()
         self.ui_select_num_classes.enable()
 
@@ -678,7 +678,7 @@ class InteractiveSegmentationTool:
         if result == 'Yes':
             utils.reset_all()
 
-        self.train_samples = glob.glob('data/train/images/*.tiff')
+        self.train_samples = glob.glob(os.path.join('data', 'train', 'images', '*.tiff'))
         self.ui_select_input_size.enable()
         self.ui_select_num_classes.enable()
         self.ui_select_architecture.enable()
@@ -779,7 +779,7 @@ class InteractiveSegmentationTool:
 
     def check_volume_folder(self):
 
-        volume_files = np.sort(glob.glob('data/image_volumes/*.zarr'))
+        volume_files = np.sort(glob.glob(os.path.join('data', 'image_volumes', '*.zarr')))
 
         self.ui_volume_count.content = f'Volumes: {len(volume_files)}'
         self.ui_sample_count.content = f'Samples: {len(self.train_samples)}'
