@@ -28,8 +28,9 @@ def train_model(lr=0.0001, batch_size=1, epochs=10,
     loss_function = utils.loss_name_to_function(loss_function_name)
 
     # If model exists - continue training
-    if os.path.isfile('model/model.ckpt'):
-        model = unet.UNet.load_from_checkpoint(checkpoint_path='model/model.ckpt')
+	model_path = os.path.join('model', 'model.ckpt')
+    if os.path.isfile(model_path):
+        model = unet.UNet.load_from_checkpoint(checkpoint_path=model_path)
         model.lr = lr
         model.loss_function = loss_function
     else:
@@ -38,8 +39,8 @@ def train_model(lr=0.0001, batch_size=1, epochs=10,
                           encoder_name=encoder_name, pretrained=pretrained)
 
     # Remove old checkpoint
-    if os.path.isfile('model/model.ckpt'):
-        os.remove('model/model.ckpt')
+    if os.path.isfile(model_path):
+        os.remove(model_path)
     
     # Save best model callback
     checkpoint_callback = ModelCheckpoint(dirpath='model/',
@@ -48,7 +49,7 @@ def train_model(lr=0.0001, batch_size=1, epochs=10,
                                           mode="min")
     
     # Training logger
-    logger = CSVLogger("model/history", name=time.strftime("%Y-%m-%d_%H-%M-%S"))
+    logger = CSVLogger(os.path.join('model', 'history'), name=time.strftime("%Y-%m-%d_%H-%M-%S"))
 
     # Train model
     model.train()
