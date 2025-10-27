@@ -16,10 +16,12 @@ class VolumeData(object):
     def __init__(self, file, annotations=False):
 
         # self.filename = file.split('/')[-1].split('.npy')[0]
-        self.filename = file.split('/')[-1].split('.zarr')[0]
-
+        # self.filename = file.split('/')[-1].split('.zarr')[0]
+        self.filename = os.path.splitext(os.path.basename(file))[0]
+        
         # self.image_volume = np.load(f'data/image_volumes/{self.filename}.npy')
-        self.image_volume = zarr.open(f'data/image_volumes/{self.filename}.zarr', mode='r')['0']
+        # self.image_volume = zarr.open(f'data/image_volumes/{self.filename}.zarr', mode='r')['0']
+        self.image_volume = zarr.open(os.path.join('data', 'image_volumes', f'{self.filename}.zarr'), mode='r')['0']
 
         self.slicer = Slicer(self.image_volume.shape)
         
@@ -35,7 +37,7 @@ class VolumeData(object):
         mask_volume = np.zeros((self.image_volume.shape[0],self.image_volume.shape[1],self.image_volume.shape[2]), dtype='uint8')
         weight_volume = np.zeros((self.image_volume.shape[0],self.image_volume.shape[1],self.image_volume.shape[2], 2), dtype='uint8')
 
-        slice_files = np.sort(glob.glob('data/train/slices/*.npy'))
+        slice_files = np.sort(glob.glob(os.path.join('data', 'train', 'slices', '*.npy')))
 
         for i in range(len(slice_files)):
 
