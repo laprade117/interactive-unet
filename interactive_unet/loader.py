@@ -14,13 +14,13 @@ from . import utils
 def load_annotations(set_type='train'): 
 
     if set_type == 'train':
-        data_folder = 'data/train'
+        data_folder = os.path.join('data', 'train')
     else:
-        data_folder = 'data/val'
+        data_folder = os.path.join('data', 'val')
 
-    image_filenames = np.sort(glob.glob(f'{data_folder}/images/*'))    
-    mask_filenames = np.sort(glob.glob(f'{data_folder}/masks/*'))    
-    weight_filenames = np.sort(glob.glob(f'{data_folder}/weights/*'))
+    image_filenames = np.sort(glob.glob(os.path.join(data_folder, 'images', '*')))  
+    mask_filenames = np.sort(glob.glob(os.path.join(data_folder, 'masks', '*'))) 
+    weight_filenames = np.sort(glob.glob(os.path.join(data_folder, 'weights', '*'))) 
 
     annotations = []
     for i in range(len(image_filenames)):
