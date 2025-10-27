@@ -19,8 +19,9 @@ def predict_slice(image_slice, num_channels=1, num_classes=2, return_probabiliti
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load model
-    if os.path.isfile('model/model.ckpt'):
-        model = unet.UNet.load_from_checkpoint(checkpoint_path='model/model.ckpt').to(device)
+    model_path = os.path.join('model', 'model.ckpt')
+    if os.path.isfile(model_path):
+        model = unet.UNet.load_from_checkpoint(checkpoint_path=model_path).to(device)
     else:
         model = unet.UNet(num_channels=num_channels, num_classes=num_classes).to(device)
     model.eval()
@@ -126,8 +127,9 @@ def predict_volumes(input_size=256, num_channels=1, num_classes=2, overlap=0.25,
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # Load model
-    if os.path.isfile('model/model.ckpt'):
-        model = unet.UNet.load_from_checkpoint(checkpoint_path='model/model.ckpt')
+    model_path = os.path.join('model', 'model.ckpt')
+    if os.path.isfile(model_path):
+        model = unet.UNet.load_from_checkpoint(checkpoint_path=model_path).to(device)
     else:
         model = unet.UNet(num_channels=num_channels, num_classes=num_classes)
     model.eval()
