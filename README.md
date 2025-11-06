@@ -16,7 +16,7 @@ Run the tool in a designated project folder using:
 
 This will create the necessary folder structure at the current working directory and then provide a link that can be opened in any web browser to access the interface. On first run, the tool will automatically download a sample volume to get started.
 
-To work with your own data, remove the sample volume from `data/image_volumes` folder and copy any 3D volumetric images that you want to segment into the same folder. Ensure they are stored as multi-scale Zarr v3 files in `uint8` with a chunk size of 128 and a shard size of 256.
+To work with your own data, remove the sample volume from `data/image_volumes` folder and copy any 3D volumetric images that you want to segment into the same folder. Ensure they are stored as multi-scale Zarr v3 files in `uint8` with a chunk size of 128 and a shard size of 256 (other values for chunk and shard sizes are currently untested, this is temporary reqirement that will be lifted as development continues).
 
 Using the paint tool annotate at least one image and then train a model. Repeat until desired segmentation result.
 
