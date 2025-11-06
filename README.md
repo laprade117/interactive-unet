@@ -43,7 +43,24 @@ Using the paint tool annotate at least one image and then train a model. Repeat 
 - **Shift + Left Click + Drag**: Drag image
 - **Shift + Mouse Wheel**: Zoom in and out
 
-### DTU Thinlinc Setup
+### Local Setup (with Conda)
+
+1. Create a conda environment:
+`conda create --name unet python=3.12`
+
+2. Activate the environment:
+`conda activate unet`
+
+3. Install the tool:
+`pip install git+https://github.com/laprade117/interactive-unet`
+
+4. Launch the tool:
+`interactive-unet`
+
+5. If the `interactive-unet` command doesn't produce a working NiceGUI interface, an alternative is to just clone the repo and run
+`python interactive_unet/app.py`
+
+### DTU Thinlinc Setup (with Conda)
 
 1. Activate an interactive GPU session:
 `sxm2sh -X`
@@ -63,4 +80,4 @@ Using the paint tool annotate at least one image and then train a model. Repeat 
 6. If `interactive-unet` doesn't produce a working NiceGUI interface, an alternative is to just clone the repo and run
 `python interactive_unet/app.py`
 
-Currently, you can only access the tool from the browser within the the ThinLinc Client. External usage is not working yet.
+While running on Thinlinc, you can only access the tool from the browser within the the ThinLinc Client. Access outside of the ThinLinc client is not working yet.
