@@ -7,7 +7,7 @@ name = "interactive-unet"
 version = "0.1.0"
 description = "An interactive segmentation tool for 3D volumetric data."
 license = { text = "BSD-2-Clause" }
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 
 dependencies = [
   "nicegui==2.24.2",
