@@ -111,7 +111,7 @@ def predict_block(model, block, num_classes=2, batch_size=8, axes=[0,1,2]):
 
     return block_prediction
 
-def predict_volumes(input_size=256, num_channels=1, num_classes=2, overlap=0.25, chunk_size=128, shard_size=256, batch_size=8, axes=[0,1,2]):
+def predict_volumes(input_size=256, num_channels=1, num_classes=2, overlap=0.25, chunk_size=128, shard_size=256, batch_size=None, axes=[0,1,2]):
 
     import signal, os, sys
 
@@ -153,8 +153,12 @@ def predict_volumes(input_size=256, num_channels=1, num_classes=2, overlap=0.25,
     window = gaussian_3d(input_size, sigma=0.125)
     # window = hanning_3d(input_size)
 
-    batch_size = find_max_batch_size(model, input_size=input_size, start=4, max_limit=input_size)
-    print(f'Found optimal inference batch size of {batch_size}.')
+    if batch_size is None:
+        batch_size = find_max_batch_size(model, input_size=input_size, start=4, max_limit=input_size)
+        print(f'Found optimal inference batch size of {batch_size}.')
+    else:
+        print(f'Using batch size of {batch_size}.')
+        
 
     # Predict volumes
     for f in volume_files:
